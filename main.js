@@ -22,6 +22,7 @@
     document.getElementById('volume-setting').value = state.settings.volume;
     document.getElementById('motion-setting').checked = state.settings.reducedMotion;
     audio.configure(state.settings);
+    activeIntro?.setSound(state.settings.sound);
     activeIntro?.setReduced(reducedMotion());
     activeButtonNoise?.setReduced(reducedMotion());
   }
@@ -38,6 +39,7 @@
   }
   function startIntro(replay=false) {
     activeIntro?.dispose(); activeButtonNoise?.dispose();activeButtonNoise=null; clearTimeout(sceneTimer);
+    audio.setIntro(false);
     screen='intro'; monitorEntry=false;
     guideReturn=replay && state.guideAccepted ? state.route : 'top';
     document.body.classList.add('intro-active');
@@ -47,17 +49,30 @@
     audio.setScene(null);
     state.started=true;
     activeIntro=new window.FadeoutIntro({
-      mount:app, lines:D.prologue, stage:replay?'prologue':state.introStage, line:replay?0:state.introLine, reduced:reducedMotion(),
-      onCheckpoint:({stage,line})=>{ if(!replay) { state.introStage=stage; state.introLine=line; persist(); } },
+      mount:app, lines:D.prologue, stage:replay?'prologue':state.introStage, line:replay?0:state.introLine, reduced:reducedMotion(), sound:state.settings.sound,
+      onCheckpoint:({stage,line})=>{ audio.setIntro(['prologue','approach','monitor','title'].includes(stage)); if(!replay) { state.introStage=stage; state.introLine=line; persist(); } },
       onMotion:()=>{ state.settings.reducedMotion=!state.settings.reducedMotion; syncSettings(); persist(); },
+      onSound:()=>setSound(!state.settings.sound),
       onComplete:()=>{
         activeIntro=null;
         monitorEntry=true;
         if(!replay) { state.introStage='guide'; persist(); }
-        render('guide'); audio.play('boot');
+        render('guide');
       },
     });
     activeIntro.setPaused(document.hidden);
+    app.focus({preventScroll:true});
+  }
+  function resumeGame() {
+    if(state.guideAccepted) render(state.route,false);
+    else if(state.introStage==='guide') { monitorEntry=true; render('guide',false); }
+    else startIntro();
+  }
+  function soundGate() {
+    screen='sound'; app.dataset.screen='sound';
+    document.body.classList.add('intro-active');
+    document.querySelector('meta[name="theme-color"]').content='#f5f6f7';
+    app.innerHTML=`<section class="sound-gate" aria-labelledby="sound-gate-title"><div class="sound-gate-card"><svg class="sound-gate-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 25h10l13-11v36L23 39H13Z"/><path d="M43 23a15 15 0 0 1 0 18m6-25a25 25 0 0 1 0 32"/></svg><span class="eyebrow">フェードアウトはセルフでお願いします。</span><h1 id="sound-gate-title">このゲームは音が鳴ります</h1><p>BGMと効果音があります。<br>お好みの音量でお楽しみください。</p><label class="sound-gate-volume" for="start-volume"><span>音量 <output id="start-volume-value">${state.settings.volume}%</output></span><input id="start-volume" type="range" min="0" max="100" value="${state.settings.volume}"></label><div class="sound-gate-actions">${button('sound-start','音をオンにして始める','solid-button')}${button('silent-start','音なしで始める','text-button')}</div><p class="small-note">${state.started ? '前回の続きから再開します。' : '音の設定は、あとから変更できます。'}</p></div></section>`;
     app.focus({preventScroll:true});
   }
   function guideView() {
@@ -127,6 +142,7 @@
   }
   function render(next, focus = true) {
     activeIntro?.dispose(); activeIntro=null;
+    audio.setIntro(false);
     activeButtonNoise?.dispose();activeButtonNoise=null;
     const previous = screen;
     clearTimeout(sceneTimer); screen = next;
@@ -175,17 +191,31 @@
       document.getElementById('sound-caption').textContent = currentResponse.caption || m.ambienceCaption;
     }
   }
-  async function setSound(value) { state.settings.sound = value; await audio.unlock(); syncSettings(); audio.setScene(screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final', 'receipt'].includes(screen) ? 'terminal' : null); if (value) audio.play('boot'); persist(); }
+  function setSound(value) { state.settings.sound = value; syncSettings(); if(value) { audio.unlock(); audio.ui('tap'); activeIntro?.setAudioError(''); } audio.setScene(screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final', 'receipt'].includes(screen) ? 'terminal' : null); persist(); }
+  // A capture listener covers native buttons, intro controls and dialog buttons alike.
+  // Starting sound is handled below so both AudioContext.resume and media.play share the gesture.
+  document.addEventListener('click', event => {
+    const b=event.target.closest('button,summary,a[data-action]');
+    if(!b || b.matches(':disabled') || ['sound-start','silent-start'].includes(b.dataset.action) || b.id==='sound-toggle' || b.dataset.introAction==='sound' || !state.settings.sound) return;
+    audio.unlock();
+    const action=b.dataset.action || b.dataset.introAction || b.id;
+    audio.ui(['confirm-yes','authenticate','accept-guide'].includes(action) ? 'confirm' : ['confirm-no','top','history','episode','review','skip'].includes(action) ? 'back' : ['inspect','next'].includes(action) ? 'soft' : 'tap');
+  },true);
   function askConfirmation(title, copy, onConfirm, confirmLabel) {
     pendingConfirm = onConfirm; document.getElementById('confirm-title').textContent = title; document.getElementById('confirm-copy').textContent = copy; document.getElementById('confirm-yes').textContent = confirmLabel || 'この選択で進める'; confirmDialog.showModal(); document.getElementById('confirm-no').focus();
   }
   document.addEventListener('click', async event => {
     const b = event.target.closest('[data-action]'); if (!b) return; event.preventDefault();
     const action = b.dataset.action;
+    if(action==='sound-start' || action==='silent-start') {
+      state.settings.sound=action==='sound-start'; syncSettings();
+      if(state.settings.sound) {audio.unlock();audio.ui('confirm');}
+      persist();resumeGame();return;
+    }
     if (action === 'settings') { syncSettings(); settingsDialog.showModal(); return; }
     if (action === 'reset') { settingsDialog.close(); askConfirmation('最初からやり直しますか？', 'このブラウザに保存した進行と、各エピソードの選択をリセットします。', () => { state = E.fresh(); currentResponse = null; hintsVisible = false; syncSettings(); persist(); startIntro(); }, '進行をリセットする'); return; }
     // ブラウザの自動再生制限に対応。音は明示的にONにするまで鳴らさない。
-    await audio.unlock(); audio.configure(state.settings);
+    if(state.settings.sound) await audio.unlock(); audio.configure(state.settings);
     switch (action) {
       case 'home': if(state.guideAccepted) render('top'); else startIntro(); break;
       case 'replay-prologue': settingsDialog.close(); startIntro(true); break;
@@ -208,7 +238,7 @@
         if (state.choices[state.active]) break;
         if (!state.completed.includes(state.active)) { audio.play('error'); activeButtonNoise?.trigger(); document.getElementById('erase-feedback').textContent = '操作できません。先に記憶を確認してください。'; break; }
         const choice = action === 'choose-erase' ? 'erase' : 'keep', index = state.active, m = D.memories[index];
-        askConfirmation(choice === 'erase' ? 'この記憶を消去しますか？' : 'この記憶を残しますか？', `履歴${m.id}「${m.title}」だけが対象です。` + (choice === 'erase' ? '消去後の影響は確認できません。確定後は、この手続きの選択を変更できません。' : 'この記憶は消去せずに残します。確定後は、この手続きの選択を変更できません。'), () => { if (E.choose(state,index,choice)) { persist(); audio.play('boot'); render('receipt'); } }, choice === 'erase' ? 'この記憶を消去する' : 'この記憶を残す'); break;
+        askConfirmation(choice === 'erase' ? 'この記憶を消去しますか？' : 'この記憶を残しますか？', `履歴${m.id}「${m.title}」だけが対象です。` + (choice === 'erase' ? '消去後の影響は確認できません。確定後は、この手続きの選択を変更できません。' : 'この記憶は消去せずに残します。確定後は、この手続きの選択を変更できません。'), () => { if (E.choose(state,index,choice)) { persist(); render('receipt'); } }, choice === 'erase' ? 'この記憶を消去する' : 'この記憶を残す'); break;
       }
       case 'show-receipt': if(state.choices[state.active]) render('receipt'); break;
       case 'next-episode': if(E.decided(state) === 4) render('ending'); else { state.active = E.decided(state); render('final'); } break;
@@ -222,11 +252,11 @@
   document.getElementById('sound-toggle').addEventListener('click', () => setSound(!state.settings.sound));
   document.getElementById('sound-setting').addEventListener('change', event => setSound(event.target.checked));
   document.getElementById('volume-setting').addEventListener('input', event => { state.settings.volume = Number(event.target.value); audio.configure(state.settings); persist(); });
+  document.addEventListener('input', event => { if(event.target.id==='start-volume') { state.settings.volume=Number(event.target.value); document.getElementById('start-volume-value').textContent=state.settings.volume+'%';audio.configure(state.settings); } });
   document.getElementById('motion-setting').addEventListener('change', event => { state.settings.reducedMotion = event.target.checked; syncSettings(); persist(); });
-  document.addEventListener('visibilitychange', () => { activeIntro?.setPaused(document.hidden);activeButtonNoise?.setPaused(document.hidden); if (document.hidden) audio.stopScene(); else if (state.settings.sound) audio.setScene(screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final', 'receipt'].includes(screen) ? 'terminal' : null); });
+  document.addEventListener('visibilitychange', () => { activeIntro?.setPaused(document.hidden);activeButtonNoise?.setPaused(document.hidden);audio.setPaused(document.hidden); if (!document.hidden && state.settings.sound) audio.setScene(screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final', 'receipt'].includes(screen) ? 'terminal' : null); });
   motionPreference.addEventListener('change',()=>{activeIntro?.setReduced(reducedMotion());activeButtonNoise?.setReduced(reducedMotion());});
   syncSettings();
-  if(state.guideAccepted) render(state.route,false);
-  else if(state.introStage==='guide') { monitorEntry=true; render('guide',false); }
-  else startIntro();
+  audio.onMusicError=()=>activeIntro?.setAudioError('BGMを再生できませんでした。「音 OFF」にしてから、もう一度オンにして再試行できます。');
+  soundGate();
 })();

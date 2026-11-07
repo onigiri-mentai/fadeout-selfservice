@@ -1,3 +1,4 @@
+const {enter}=require('./helpers.cjs');
 // 開発用。実際の操作で、4件の確認・選択・再開を通して検証する。
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -20,7 +21,7 @@ const sequences = [['chair','cup','hand','chair'],['hand','phone','phone'],['pud
   const saved = ()=>page.evaluate(()=>JSON.parse(localStorage.getItem('fadeout.prototype.v1')));
   const screenshot = name=>page.screenshot({path:path.join(output,name),fullPage:true});
   try {
-    await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8000');
+    await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8000');await enter(page);
     await screen('intro'); await screenshot('intro-black.png');
     await page.locator('[data-intro-action="skip"]').click(); await screen('guide');
     await page.getByText('当機では、手放したい記憶の確認・整理・消去を受け付けております。',{exact:true}).waitFor();
@@ -40,7 +41,7 @@ const sequences = [['chair','cup','hand','chair'],['hand','phone','phone'],['pud
     assert.equal(await action('choose-keep').isDisabled(),true);
     await action('choose-erase').click();await screen('final');
     assert.deepEqual((await saved()).choices,[null,null,null,null]);
-    await page.reload();await screen('final');await screenshot('episode-before-mobile.png');
+    await page.reload();await enter(page);await screen('final');await screenshot('episode-before-mobile.png');
     await action('read-memory').click();await screen('memory');
     assert.equal(await page.locator('#finish-button').isDisabled(),true);
     await inspect('hand');assert.ok(await page.locator('.narrative-hint').textContent());
@@ -58,7 +59,7 @@ const sequences = [['chair','cup','hand','chair'],['hand','phone','phone'],['pud
     assert.equal(await page.locator('#finish-button').isEnabled(),true);
     await noOverflow();await screenshot('memory001-mobile.png');
     await page.setViewportSize({width:1365,height:1000});await screenshot('memory001-desktop.png');
-    await page.reload();await screen('memory');
+    await page.reload();await enter(page);await screen('memory');
     // 戻るだけでは確認完了や次の解放にならない。
     await action('episode').click();await screen('final');assert.equal(await action('choose-keep').isDisabled(),true);
     await action('read-memory').click();await action('finish-memory').click();await screen('final');
@@ -80,13 +81,13 @@ const sequences = [['chair','cup','hand','chair'],['hand','phone','phone'],['pud
       assert.ok((await page.locator('#confirm-copy').textContent()).includes(`履歴00${i+1}「`));
       await page.locator('#confirm-yes').click();await screen('receipt');await noOverflow();
       assert.deepEqual((await saved()).choices,choices.map((c,j)=>j<=i?c:null));
-      await page.reload();await screen('receipt');if(i===0) await screenshot('receipt-mobile.png');
+      await page.reload();await enter(page);await screen('receipt');if(i===0) await screenshot('receipt-mobile.png');
       await action('next-episode').click();
       if(i<3) {await screen('final');assert.equal((await saved()).active,i+1);assert.equal(await action('choose-keep').isDisabled(),true);}
     }
     await screen('ending');assert.equal(await page.locator('.ending-screen').getAttribute('data-choice'),'mixed');
     assert.equal(await page.locator('.choice-records li').count(),4);
-    await screenshot('results-mobile.png');await page.reload();await screen('ending');
+    await screenshot('results-mobile.png');await page.reload();await enter(page);await screen('ending');
     await action('review').click();await screen('history');
     assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'4');
     assert.equal(await page.locator('.history-item:disabled').count(),0);
@@ -111,7 +112,7 @@ const sequences = [['chair','cup','hand','chair'],['hand','phone','phone'],['pud
       for(let i=0;i<4;i++){for(const id of sequences[i]) E.inspect(old,i,id);E.finish(old,i);E.choose(old,i,choice);}
       delete old.choices;delete old.flowVersion;old.endingChoice=choice;old.route='ending';
       await page.evaluate(value=>localStorage.setItem('fadeout.prototype.v1',value),JSON.stringify(old));
-      await page.reload();await screen('ending');
+      await page.reload();await enter(page);await screen('ending');
       assert.equal(await page.locator('.ending-screen').getAttribute('data-choice'),choice);
       assert.equal(await page.locator('.choice-records strong').filter({hasText:choice==='erase'?'消去済み':'残す'}).count(),4);
     }

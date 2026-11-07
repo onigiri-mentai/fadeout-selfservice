@@ -1,3 +1,4 @@
+const {enter}=require('./helpers.cjs');
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');
@@ -20,7 +21,7 @@ const E=require('../engine.js');
     assert.ok(sizes.length>0);assert.ok(sizes.every(size=>size>=14),selector+' is readable');
   };
   try{
-    await page.goto(process.env.GAME_URL||'http://127.0.0.1:8000');await page.locator('#app[data-screen="top"]').waitFor();
+    await page.goto(process.env.GAME_URL||'http://127.0.0.1:8000');await enter(page);await page.locator('#app[data-screen="top"]').waitFor();
     await noOverflow();
     assert.equal(await canvas.count(),0,'トップには消去ボタンを置かない');
     await minimumText('.terminal-intro,.menu-card small,.reception-footnote');

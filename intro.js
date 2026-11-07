@@ -10,8 +10,8 @@
   const REDUCED_DURATION = {approach:1600,monitor:1100,authenticating:1600};
   const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   class FadeoutIntro {
-    constructor({mount, lines, stage='prologue', line=0, reduced=false, onCheckpoint, onComplete, onMotion}) {
-      Object.assign(this, {mount, lines, reduced, onCheckpoint, onComplete, onMotion});
+    constructor({mount, lines, stage='prologue', line=0, reduced=false, sound=false, onCheckpoint, onComplete, onMotion, onSound}) {
+      Object.assign(this, {mount, lines, reduced, onCheckpoint, onComplete, onMotion, onSound});
       this.disposed = false; this.paused = false; this.timer=null; this.due=null; this.remaining=null; this.waitingForImage=false;
       mount.innerHTML = `<section class="intro-experience" data-phase="prologue" aria-label="冒頭の演出">
         <div class="intro-world" aria-hidden="true"><div class="intro-world-plane">
@@ -25,7 +25,8 @@
         <p class="intro-scene-description sr-only" aria-live="polite"></p>
         <button class="intro-advance" data-intro-action="next" aria-label="次の場面へ進む"><span class="intro-tap-label">タップして次へ<span aria-hidden="true"> →</span></span></button>
         <div class="intro-bottom-actions" aria-hidden="true"><button class="intro-primary-action" data-intro-action="authenticate" hidden>認証する</button><button class="intro-primary-action" data-intro-action="guide" hidden>利用案内へ</button></div>
-        <div class="intro-tools"><button data-intro-action="motion" aria-pressed="${reduced}">${reduced ? '動き軽減 ON' : '動きを少なく'}</button><button data-intro-action="skip">案内へスキップ</button></div>
+        <p class="intro-audio-notice" role="status" hidden></p>
+        <div class="intro-tools"><button data-intro-action="sound" aria-pressed="${sound}">${sound ? '音 ON' : '音 OFF'}</button><button data-intro-action="motion" aria-pressed="${reduced}">${reduced ? '動き軽減 ON' : '動きを少なく'}</button><button data-intro-action="skip">案内へスキップ</button></div>
       </section>`;
       this.element = mount.querySelector('.intro-experience');
       this.plane = mount.querySelector('.intro-world-plane');
@@ -39,6 +40,7 @@
         if (button.dataset.introAction === 'next') this.next();
         if (button.dataset.introAction === 'skip') this.finish();
         if (button.dataset.introAction === 'motion') this.onMotion?.();
+        if (button.dataset.introAction === 'sound') this.onSound?.();
         if (button.dataset.introAction === 'authenticate' && this.stage==='title') this.show('authenticating');
         if (button.dataset.introAction === 'guide' && this.stage==='authenticated') this.finish();
       };
@@ -113,6 +115,12 @@
       }
     }
     duration() { return (this.reduced?REDUCED_DURATION:AUTO_DURATION)[this.stage]; }
+    setSound(sound) {
+      const button=this.mount.querySelector('[data-intro-action="sound"]');
+      button.textContent=sound?'音 ON':'音 OFF';button.setAttribute('aria-pressed',String(sound));
+      if(!sound) this.setAudioError('');
+    }
+    setAudioError(message) { const note=this.mount.querySelector('.intro-audio-notice');note.textContent=message;note.hidden=!message; }
     schedule(ms) {
       clearTimeout(this.timer); this.remaining=ms; this.due=performance.now()+ms;
       if(!this.paused) this.timer=setTimeout(()=>this.advanceCamera(),ms);
