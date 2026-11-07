@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   const KEY = 'fadeout.prototype.v1';
-  const fresh = () => ({ version: 1, started: false, guideAccepted: false, route: 'top', active: 0, completed: [], memories: Array.from({ length: 4 }, () => ({ clues: [], effects: [] })), endingChoice: null, settings: { sound: false, volume: 35, reducedMotion: false } });
+  const fresh = () => ({ version: 1, started: false, guideAccepted: false, introStage: 'prologue', introLine: 0, route: 'top', active: 0, completed: [], memories: Array.from({ length: 4 }, () => ({ clues: [], effects: [] })), endingChoice: null, settings: { sound: false, volume: 35, reducedMotion: false } });
   const hasAll = (list, required) => required.every(id => list.includes(id));
   function load(storage) {
     try {
@@ -11,6 +11,8 @@
       const state = fresh();
       state.started = !!s.started;
       state.guideAccepted = !!s.guideAccepted;
+      state.introStage = state.guideAccepted ? 'done' : ['prologue','wide','approach','monitor','guide'].includes(s.introStage) ? s.introStage : 'prologue';
+      state.introLine = Number.isInteger(s.introLine) ? Math.max(0,Math.min(root.FadeoutData.prologue.length-1,s.introLine)) : 0;
       state.settings = { sound: s.settings?.sound === true, volume: Math.max(0, Math.min(100, Number(s.settings?.volume) || 0)), reducedMotion: s.settings?.reducedMotion === true };
       if (Array.isArray(s.memories) && s.memories.length === 4) state.memories = s.memories.map(m => ({ clues: Array.isArray(m?.clues) ? m.clues.filter(v => typeof v === 'string') : [], effects: Array.isArray(m?.effects) ? m.effects.filter(v => typeof v === 'string') : [] }));
       // 完了履歴は必須断片を確認済みの連続した履歴だけ復元する。

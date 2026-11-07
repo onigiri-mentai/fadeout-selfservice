@@ -1,0 +1,85 @@
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const path=require('node:path');
+const D=require('../data.js');
+const E=require('../engine.js');
+const URL=process.env.GAME_URL||'http://127.0.0.1:8000';
+(async()=>{
+  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
+  const errors=[];
+  const output=path.join(__dirname,'../test-results'); await fs.mkdir(output,{recursive:true});
+  const phase=(page,name)=>page.locator(`.intro-experience[data-phase="${name}"]`).waitFor();
+  const finishVisuals=page=>page.locator('.intro-experience').evaluate(el=>el.getAnimations({subtree:true}).forEach(a=>a.finish()));
+  const observe=page=>{page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=400) errors.push(r.status()+' '+r.url());});};
+  try {
+    const context=await browser.newContext({viewport:{width:1365,height:900},reducedMotion:'no-preference'});
+    const page=await context.newPage(); observe(page); await page.clock.install();
+    await page.goto(URL); await phase(page,'prologue');
+    assert.equal(await page.locator('.masthead').isVisible(),false);
+    assert.equal(await page.locator('.site-footer').isVisible(),false);
+    assert.equal(await page.locator('[data-action="start"]').count(),0);
+    for(let i=0;i<D.prologue.length;i++) {
+      assert.equal(await page.locator('#intro-line').textContent(),D.prologue[i]);
+      await page.clock.runFor(Math.max(3600,D.prologue[i].length*110+1400)+1);
+    }
+    await phase(page,'wide'); await page.locator('.intro-world-image').evaluate(image=>image.decode());
+    await finishVisuals(page); await page.screenshot({path:path.join(output,'intro-wide-desktop.png')});
+    await page.clock.runFor(5501); await phase(page,'approach'); await finishVisuals(page);
+    await page.screenshot({path:path.join(output,'intro-approach-desktop.png')});
+    await page.clock.runFor(5001); await phase(page,'monitor'); await finishVisuals(page);
+    const cover=await page.locator('.intro-screen-surface').evaluate(el=>{const r=el.getBoundingClientRect();return r.left<=0&&r.top<=0&&r.right>=innerWidth&&r.bottom>=innerHeight;});
+    assert.equal(cover,true,'モニターの表示面が画面全体を覆う');
+    await page.clock.runFor(3401); await page.locator('#app[data-screen="guide"]').waitFor();
+    for(const text of [...D.guide,...D.guideNotes]) await page.getByText(text,{exact:true}).waitFor();
+    assert.equal(await page.locator('.masthead').isVisible(),false);
+    await page.locator('#app').evaluate(el=>el.getAnimations().forEach(a=>a.finish()));
+    await page.screenshot({path:path.join(output,'intro-guide-desktop.png'),fullPage:true});
+    await page.locator('[data-action="accept-guide"]').click();
+    await page.clock.runFor(60000); await page.locator('#app[data-screen="top"]').waitFor();
+    await page.reload(); await page.locator('#app[data-screen="top"]').waitFor();
+    assert.equal(await page.locator('.intro-experience').count(),0,'再訪時は自動再開');
+    await context.close();
+
+    const mobile=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce'});
+    const phone=await mobile.newPage(); observe(phone); await phone.goto(URL);
+    for(let i=0;i<D.prologue.length;i++) await phone.locator('[data-intro-action="next"]').click({position:{x:30,y:400}});
+    await phase(phone,'wide'); await phone.locator('.intro-world-image').evaluate(image=>image.decode());
+    assert.equal(await phone.locator('.intro-experience').getAttribute('data-frame'),'portrait');
+    await phone.screenshot({path:path.join(output,'intro-wide-mobile.png')});
+    await phone.locator('[data-intro-action="next"]').click({position:{x:30,y:400}}); await phase(phone,'approach');
+    assert.equal(await phone.locator('.intro-world-plane').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
+    await phone.screenshot({path:path.join(output,'intro-approach-mobile.png')});
+    await phone.reload(); await phase(phone,'approach');
+    await phone.locator('[data-intro-action="skip"]').click(); await phone.locator('#app[data-screen="guide"]').waitFor();
+    assert.equal(await phone.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await phone.screenshot({path:path.join(output,'intro-guide-mobile.png'),fullPage:true});
+    await phone.locator('[data-action="accept-guide"]').click();
+    await phone.locator('[data-action="history"]').click(); await phone.locator('[data-index="0"]').click();
+    await phone.locator('.hotspot[data-id="chair"]').click();
+    const before=await phone.evaluate(()=>JSON.parse(localStorage.getItem('fadeout.prototype.v1')));
+    await phone.locator('[data-action="settings"]').click();
+    await phone.locator('[data-action="replay-prologue"]').click(); await phase(phone,'prologue');
+    await phone.locator('[data-intro-action="skip"]').click(); await phone.locator('[data-action="accept-guide"]').click();
+    await phone.locator('#app[data-screen="memory"]').waitFor();
+    const after=await phone.evaluate(()=>JSON.parse(localStorage.getItem('fadeout.prototype.v1')));
+    assert.deepEqual(after.memories,before.memories,'冒頭の再生で調査履歴を消さない');
+    await phone.setViewportSize({width:320,height:640});
+    await phone.locator('[data-action="settings"]').click(); await phone.locator('[data-action="reset"]').click(); await phone.locator('#confirm-yes').click();
+    await phase(phone,'prologue');
+    assert.equal(await phone.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await phone.locator('[data-intro-action="skip"]').click(); await phone.locator('#app[data-screen="guide"]').waitFor();
+    assert.equal(await phone.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await mobile.close();
+
+    const legacy=await browser.newContext({reducedMotion:'reduce'});
+    const old=E.fresh(); old.started=true; old.guideAccepted=true; old.route='history'; delete old.introStage; delete old.introLine;
+    await legacy.addInitScript(value=>localStorage.setItem('fadeout.prototype.v1',value),JSON.stringify(old));
+    const returning=await legacy.newPage(); observe(returning); await returning.goto(URL);
+    await returning.locator('#app[data-screen="history"]').waitFor();
+    assert.equal(await returning.locator('.intro-experience').count(),0);
+    await legacy.close();
+    assert.deepEqual(errors,[]);
+    console.log('Intro passed: automatic timeline, monitor coverage, tap/skip, reduced motion, portrait framing, checkpoints, replay, legacy save, reset.');
+  } finally { await browser.close(); }
+})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -69,3 +69,16 @@ test('保存・復元は調査と選択を保持し、壊れたデータと保�
   assert.equal(E.load(storage).endingChoice, null);
   assert.equal(E.save({ setItem() { throw new Error('quota'); } }, s), false);
 });
+test('導入の途中を保存し、v0.2以前のセーブは進行を保って再開できる', () => {
+  const s=E.fresh(); s.started=true; s.introStage='approach'; s.introLine=3;
+  const storage={getItem:()=>JSON.stringify(s)};
+  assert.equal(E.load(storage).introStage,'approach');
+  assert.equal(E.load(storage).introLine,3);
+  finishOne(s,0); s.guideAccepted=true; s.active=1; s.route='history';
+  delete s.introStage; delete s.introLine;
+  const restored=E.load(storage);
+  assert.equal(restored.introStage,'done');
+  assert.deepEqual(restored.completed,[0]);
+  assert.equal(restored.active,1);
+  assert.equal(restored.route,'history');
+});

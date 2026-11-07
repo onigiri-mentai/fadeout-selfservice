@@ -1,0 +1,93 @@
+/* A full-viewport camera space, separate from the saved game screens. */
+body.intro-active { background:#050608; overflow:hidden; }
+body.intro-active>.masthead,body.intro-active>.site-footer,body.monitor-entry>.masthead,body.monitor-entry>.site-footer { display:none; }
+body.intro-active #app { min-height:100svh; }
+.intro-experience { position:fixed; inset:0; width:100%; height:100dvh; overflow:hidden; background:#050608; color:#e9ebef; isolation:isolate; }
+.intro-world { position:absolute; inset:0; background:#f0f5f9; opacity:0; transition:opacity 1600ms ease; }
+.intro-world-plane { position:absolute; top:0; left:0; transform-origin:0 0; will-change:transform; }
+.intro-world-image { display:block; width:100%; height:100%; max-width:none; }
+.intro-screen-surface { position:absolute; background:linear-gradient(140deg,#e6f3fa,#f4f7fa); opacity:0; transition:opacity 1600ms ease; }
+.intro-dark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:40px 28px; background:#050608; opacity:1; transition:opacity 1200ms ease; pointer-events:none; }
+.intro-line { position:relative; max-width:680px; margin:0; color:#ececee; font:clamp(17px,2vw,25px)/2.3 var(--serif); letter-spacing:.08em; white-space:pre-line; text-align:center; }
+.intro-line span { display:block; animation:intro-passage var(--line-duration,4s) both; }
+.intro-experience[data-phase="prologue"] .intro-line:first-letter { font-size:1.05em; }
+.intro-experience:not([data-phase="prologue"]) .intro-dark { opacity:0; }
+.intro-experience:not([data-phase="prologue"]) .intro-world { opacity:1; }
+.intro-experience[data-phase="monitor"] .intro-screen-surface { opacity:1; }
+.intro-advance { position:absolute; inset:0; width:100%; height:100%; padding:0; background:transparent; border:0; border-radius:0; color:inherit; }
+.intro-advance:focus-visible { outline:2px solid #bdccd5; outline-offset:-9px; }
+.intro-tap-label { position:absolute; bottom:max(32px,calc(env(safe-area-inset-bottom) + 20px)); left:50%; transform:translateX(-50%); white-space:nowrap; font:11px/1.8 var(--sans); color:#c0c5cc; letter-spacing:.12em; padding:10px 16px; }
+.intro-tap-label>span { margin-left:9px; }
+.intro-tools { position:absolute; z-index:3; top:max(20px,calc(env(safe-area-inset-top) + 12px)); right:24px; display:flex; gap:10px; }
+.intro-tools button { min-height:44px; padding:10px 14px; color:#d6dae1; border:1px solid #69717c77; background:#11172065; border-radius:5px; font-size:11px; font-weight:400; }
+.intro-tools button:hover { background:#29323b; }
+.intro-experience:not([data-phase="prologue"]) .intro-tools button { background:#ffffffe6; color:#53687b; border-color:#c2cfd7; box-shadow:0 2px 10px #5b71830c; }
+.intro-experience:not([data-phase="prologue"]) .intro-tap-label { color:#526b7c; background:#ffffffc4; border:1px solid #dce5e9; border-radius:5px; }
+.intro-experience[data-phase="monitor"] .intro-tools,.intro-experience[data-phase="monitor"] .intro-tap-label { opacity:0; pointer-events:none; transition:opacity 300ms; }
+.intro-experience.image-unavailable .intro-world { background:linear-gradient(#d8e7f4,#fff 75%); }
+.intro-experience.image-unavailable .intro-world-image { visibility:hidden; }
+.intro-experience.is-reduced .intro-world-plane { transition:none!important; }
+.intro-experience.is-reduced .intro-line span { animation:none!important; }
+/* Match the real monitor's cool white screen without changing the guide text. */
+body.monitor-entry { background:#f4f7fa; }
+.monitor-entry #app { min-height:100svh; }
+.monitor-entry .terminal-wrap { width:100%; max-width:none; min-height:100svh; margin:0; padding:0; }
+.monitor-entry .terminal-heading { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+.monitor-entry .machine { min-height:100svh; padding:0; border:0; border-radius:0; box-shadow:none; background:#f4f7fa; }
+.monitor-entry .machine-screen { min-height:100svh; border:0; border-radius:0; background:#f4f7fa; }
+.monitor-entry .machine-plinth { display:none; }
+.monitor-entry .terminal-content { max-width:850px; margin:0 auto; padding:clamp(30px,7vh,70px) 40px; }
+.monitor-entry .guide-copy { max-width:700px; }
+.monitor-entry .guide-copy .solid-button { min-height:58px; }
+.monitor-entry .machine-status { min-height:55px; padding-left:max(24px,calc((100vw - 770px)/2)); padding-right:max(24px,calc((100vw - 770px)/2)); }
+.monitor-entry #app { animation:monitor-arrival 650ms both; }
+/* Neutral casing and blue-grey controls contrast with the white world. */
+.monitor-session .machine { background:#e2e7eb; border-color:#aebbc3; box-shadow:inset 0 2px 0 #fff,0 6px 0 #cbd4da; }
+.monitor-session .machine-screen { background:#f7f9fa; border-color:#98a9b5; }
+.monitor-session .machine-status { background:#526b7b; color:#fff; }
+.monitor-session .machine-status i { background:#d1e2e9; }
+.monitor-session .terminal-progress { background:#eaf0f3; border-color:#c4d0d8; }
+.monitor-session .progress-heading strong { color:#365262; }
+.monitor-session .progress-heading strong span,.monitor-session .verification-state { color:#5c7380; }
+.monitor-session .progress-segment { border-top-color:#c6d1d6; color:#647982; }
+.monitor-session .progress-segment.is-current { border-top-color:#92aaba; color:#496777; }
+.monitor-session .progress-segment.is-complete { border-top-color:#577989; color:#3d626f; }
+.monitor-session .menu-card { background:#fdfefe; border-color:#9bafbb; color:#3d5b6d; box-shadow:0 5px 0 #ccd7dd,inset 0 1px 0 #fff; }
+.monitor-session .menu-card:hover { background:#edf3f7; }
+.monitor-session .history-card { background:#557589; color:#fff; border-color:#435f72; box-shadow:0 5px 0 #3e5a6b; }
+.monitor-session .history-card:hover { background:#49687b; }
+.monitor-session .history-card .menu-state { color:#f2f6fa; }
+.monitor-session .erase-card { background:#e4ecf1; }
+.monitor-session .erase-card.is-locked { background:#e7ecef; color:#64727b; border-color:#aebdc5; box-shadow:0 5px 0 #cdd7dc; }
+.monitor-session .erase-card.is-locked:after { background:#52667155; }
+.monitor-session .inline-status,.monitor-session .guide-notes { background:#eaf0f4; border-color:#bacbd6; color:#4c6576; }
+.monitor-session .section-label { color:#5c7485; border-color:#c6d4dc; }
+.monitor-session .solid-button { background:#526f83; border-color:#435f71; box-shadow:0 4px 0 #354f60; }
+.monitor-session .solid-button:hover { background:#435f73; }
+.monitor-session .outline-button { color:#466579; border-color:#8ea6b5; box-shadow:0 3px 0 #cdd8df; }
+.monitor-session .outline-button:hover { background:#edf3f6; }
+.monitor-session .history-item { background:#fdfefe; color:#405f72; border-color:#9cafbb; box-shadow:0 3px 0 #d0dbe2; }
+.monitor-session .history-item:disabled { background:#e9eef1; border-color:#c7d2d9; color:#6b7e89; box-shadow:none; }
+.monitor-session .history-number { border-color:#c1cfd8; }
+.monitor-session .final-cautions { background:#eef1f0; border-color:#c2cecf; }
+.monitor-session .final-cautions h3 { color:#506777; }
+.monitor-session .final-info { border-color:#bdccd5; }
+.monitor-session .final-info dt { color:#5a7281; }
+.monitor-entry.monitor-session .machine { box-shadow:none; }
+.intro-replay-button { display:block; margin-top:14px; }
+@keyframes intro-passage { 0%,100% { opacity:0; } 16%,80% { opacity:1; } }
+@keyframes monitor-arrival { from { opacity:0; } to { opacity:1; } }
+@media(max-width:700px) {
+  .intro-tools { right:15px; top:max(16px,calc(env(safe-area-inset-top) + 9px)); gap:7px; }
+  .intro-tools button { padding:10px 11px; font-size:10px; }
+  .intro-line { max-width:390px; font-size:16px; line-height:2.2; letter-spacing:.04em; }
+  .intro-tap-label { bottom:max(27px,calc(env(safe-area-inset-bottom) + 15px)); font-size:10px; }
+  .monitor-entry .terminal-content { padding:32px 24px max(35px,env(safe-area-inset-bottom)); }
+  .monitor-entry .guide-copy p { font-size:14px; line-height:2; }
+  .monitor-entry .guide-notes p { font-size:12px; }
+  .monitor-entry .machine-status { min-height:49px; padding:13px 22px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .intro-world-plane { transition:none!important; }
+  .intro-line span { animation:none!important; }
+}

@@ -3,7 +3,10 @@
   const D = window.FadeoutData, E = window.FadeoutEngine;
   let storage;
   try { storage = window.localStorage; } catch { storage = { getItem: () => null, setItem: () => { throw new Error('unavailable'); } }; }
-  let state = E.load(storage), screen = 'title', guideReturn = 'top', currentResponse = null, hintsVisible = false, sceneExpanded = true, pendingConfirm = null, sceneTimer = null;
+  let state = E.load(storage), screen = 'intro', guideReturn = 'top', currentResponse = null, hintsVisible = false, sceneExpanded = true, pendingConfirm = null, sceneTimer = null;
+  let activeIntro = null, monitorEntry = false;
+  const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+  const reducedMotion = () => state.settings.reducedMotion || motionPreference.matches;
   const audio = new window.FadeoutAudio();
   const app = document.getElementById('app'), settingsDialog = document.getElementById('settings-dialog'), confirmDialog = document.getElementById('confirm-dialog');
   const esc = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -19,6 +22,7 @@
     document.getElementById('volume-setting').value = state.settings.volume;
     document.getElementById('motion-setting').checked = state.settings.reducedMotion;
     audio.configure(state.settings);
+    activeIntro?.setReduced(reducedMotion());
   }
   function terminal(content, heading, code, status = 'お手続きを選択してください') {
     return `<section class="terminal-wrap"><div class="terminal-heading"><div><span class="eyebrow">セルフサービス / 記憶の確認・消去</span><h1>${heading}</h1></div><span class="terminal-id">受付機 01</span></div><div class="machine"><div class="machine-screen"><div class="machine-status"><span><i aria-hidden="true"></i>${status}</span><span>${code}</span></div><div class="terminal-content">${content}</div></div><div class="machine-plinth" aria-hidden="true"><span class="plinth-slot"></span><span class="plinth-caption">フェードアウト受付機 F-01</span></div></div></section>`;
@@ -31,10 +35,29 @@
     const paths = { history: '<path d="M5 5h14v16H5zM8 2h8v5H8zM8 11h8m-8 4h8"/>', erase: '<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6m4-6v6"/>', guide: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4m0 3v.2"/>' };
     return `<svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[kind]}</svg>`;
   }
-  function titleView() {
-    return `<section class="title-screen"><div class="title-copy"><span class="standby-label"><i aria-hidden="true"></i>受付待機中</span><h1>フェードアウトは<br>セルフでお願いします。</h1><p class="title-sub">記憶を確認して、最後に手続きを選びます。</p><ol class="start-steps"><li><span>1</span>利用案内を確認</li><li><span>2</span>4件の記憶を調べる</li><li><span>3</span>消去するか選択</li></ol>${button('start', `${state.started ? '続きから' : '受付機を起動する'}<span aria-hidden="true">→</span>`, 'solid-button title-start')}<p class="play-note">クリック・タップで操作できます。進行は自動保存。<br>音は初期設定でオフです。右上から変更できます。</p>${state.started ? button('replay-prologue', '冒頭を読み返す', 'text-button') : ''}</div><div class="title-visual" aria-label="空いた椅子のあるダイニングの鉛筆画" role="img"><span class="picture-index" aria-hidden="true">記憶の履歴 001</span><div class="title-art"></div><span class="visual-caption" aria-hidden="true">空いた席 / 夕方のダイニング</span></div></section>`;
+  function startIntro(replay=false) {
+    activeIntro?.dispose(); clearTimeout(sceneTimer);
+    screen='intro'; monitorEntry=false;
+    guideReturn=replay && state.guideAccepted ? state.route : 'top';
+    document.body.classList.add('intro-active');
+    document.body.classList.remove('monitor-entry','monitor-session');
+    document.querySelector('meta[name="theme-color"]').content='#050608';
+    app.classList.remove('scene-transition'); app.dataset.screen='intro';
+    audio.setScene(null);
+    state.started=true;
+    activeIntro=new window.FadeoutIntro({
+      mount:app, lines:D.prologue, stage:replay?'prologue':state.introStage, line:replay?0:state.introLine, reduced:reducedMotion(),
+      onCheckpoint:({stage,line})=>{ if(!replay) { state.introStage=stage; state.introLine=line; persist(); } },
+      onMotion:()=>{ state.settings.reducedMotion=!state.settings.reducedMotion; syncSettings(); persist(); },
+      onComplete:()=>{
+        activeIntro=null; monitorEntry=true;
+        if(!replay) { state.introStage='guide'; persist(); }
+        render('guide'); audio.play('boot');
+      },
+    });
+    activeIntro.setPaused(document.hidden);
+    app.focus({preventScroll:true});
   }
-  function prologueView() { return `<section class="prologue-screen"><div class="prologue-content">${D.prologue.map(t => `<p>${esc(t)}</p>`).join('')}${button('prologue-next', '受付機へ →', 'text-button prologue-next')}</div></section>`; }
   function guideView() {
     return terminal(`<div class="guide-copy"><span class="section-label">お手続きの前に</span>${D.guide.map(p => `<p>${esc(p)}</p>`).join('')}<div class="guide-notes">${D.guideNotes.map(p => `<p>${esc(p)}</p>`).join('')}</div><p class="guide-signature">フェードアウトはセルフでお願いします。</p>${button('accept-guide', '確認しました →', 'solid-button')}</div>`, 'ご利用案内', '案内表示中', '操作受付中');
   }
@@ -94,17 +117,21 @@
     return `<section class="ending-screen" data-choice="${choice}"><div class="ending-top"><span>FADE OUT / ${esc(e.label)}</span><span>処理終了</span></div><div class="ending-layout"><div class="ending-art" role="img" aria-label="同じ椅子とカップの残る食卓。日が差している。">${choice === 'keep' ? '<span class="ending-flower" aria-hidden="true"></span>' : ''}</div><div class="ending-text"><span class="eyebrow">AFTER THE PROCEDURE</span><h1>${esc(e.heading)}</h1>${e.text.map(p => `<p>${esc(p)}</p>`).join('')}<p class="sound-ending">♪ ${esc(e.caption)}</p>${button('review', '手続き前の記録を読み返す', 'outline-button')}<p class="small-note" style="margin-top:18px">もう一方の選択も、記録を読み返してから試せます。</p></div></div></section>`;
   }
   function render(next, focus = true) {
+    activeIntro?.dispose(); activeIntro=null;
     const previous = screen;
     clearTimeout(sceneTimer); screen = next;
+    document.body.classList.remove('intro-active');
+    document.body.classList.toggle('monitor-entry',next==='guide'&&monitorEntry);
+    document.body.classList.toggle('monitor-session',['guide','top','history','final'].includes(next));
+    document.querySelector('meta[name="theme-color"]').content=next==='guide'&&monitorEntry?'#f4f7fa':'#f3f5ef';
     if (['top', 'history', 'memory', 'final', 'ending'].includes(next)) { state.route = next; persist(); }
-    const views = { title: titleView, prologue: prologueView, guide: guideView, top: topView, history: historyView, memory: memoryView, final: finalView, ending: endingView };
+    const views = { guide: guideView, top: topView, history: historyView, memory: memoryView, final: finalView, ending: endingView };
     app.innerHTML = views[next](); app.dataset.screen = next;
     app.classList.toggle('scene-transition', previous !== next && (next === 'memory' || previous === 'memory' || next === 'ending'));
     if (focus) { app.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); }
     audio.setScene(next === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final'].includes(next) ? 'terminal' : null);
     if (next === 'memory') { sceneExpanded = true; updateMemory(); requestAnimationFrame(centerScene); }
     if (next === 'ending') audio.play(D.endings[state.endingChoice].sound);
-    if (next === 'prologue') sceneTimer = setTimeout(() => { guideReturn = 'top'; render('guide'); audio.play('boot'); }, Math.max(14000, D.prologue.join('').length * 115));
   }
   function centerScene(target) {
     const viewport = document.getElementById('scene-viewport'), scene = document.getElementById('memory-scene');
@@ -144,18 +171,14 @@
     const b = event.target.closest('[data-action]'); if (!b) return; event.preventDefault();
     const action = b.dataset.action;
     if (action === 'settings') { syncSettings(); settingsDialog.showModal(); return; }
-    if (action === 'reset') { settingsDialog.close(); askConfirmation('最初からやり直しますか？', 'このブラウザに保存した進行と最後の選択をリセットします。', () => { state = E.fresh(); currentResponse = null; hintsVisible = false; syncSettings(); persist(); render('title'); }, '進行をリセットする'); return; }
+    if (action === 'reset') { settingsDialog.close(); askConfirmation('最初からやり直しますか？', 'このブラウザに保存した進行と最後の選択をリセットします。', () => { state = E.fresh(); currentResponse = null; hintsVisible = false; syncSettings(); persist(); startIntro(); }, '進行をリセットする'); return; }
     // ブラウザの自動再生制限に対応。音は明示的にONにするまで鳴らさない。
     await audio.unlock(); audio.configure(state.settings);
     switch (action) {
-      case 'home': render(state.started && state.guideAccepted ? 'top' : 'title'); break;
-      case 'start':
-        if (state.started && state.guideAccepted) render(state.route === 'ending' && !state.endingChoice ? 'top' : state.route);
-        else { state.started = true; persist(); render('prologue'); } break;
-      case 'replay-prologue': render('prologue'); break;
-      case 'prologue-next': guideReturn = 'top'; audio.play('boot'); render('guide'); break;
+      case 'home': if(state.guideAccepted) render('top'); else startIntro(); break;
+      case 'replay-prologue': settingsDialog.close(); startIntro(true); break;
       case 'guide': guideReturn = screen === 'history' ? 'history' : 'top'; render('guide'); break;
-      case 'accept-guide': state.guideAccepted = true; state.started = true; persist(); render(guideReturn); break;
+      case 'accept-guide': state.guideAccepted = true; state.started = true; state.introStage='done'; state.introLine=0; monitorEntry=false; persist(); render(guideReturn); break;
       case 'top': render('top'); break;
       case 'history': render('history'); break;
       case 'open-memory': { const index = Number(b.dataset.index); if (index < E.unlocked(state)) { state.active = index; currentResponse = null; hintsVisible = false; render('memory'); } break; }
@@ -180,6 +203,10 @@
   document.getElementById('sound-setting').addEventListener('change', event => setSound(event.target.checked));
   document.getElementById('volume-setting').addEventListener('input', event => { state.settings.volume = Number(event.target.value); audio.configure(state.settings); persist(); });
   document.getElementById('motion-setting').addEventListener('change', event => { state.settings.reducedMotion = event.target.checked; syncSettings(); persist(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) audio.stopScene(); else if (state.settings.sound) audio.setScene(screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final'].includes(screen) ? 'terminal' : null); });
-  syncSettings(); render('title', false);
+  document.addEventListener('visibilitychange', () => { activeIntro?.setPaused(document.hidden); if (document.hidden) audio.stopScene(); else if (state.settings.sound) audio.setScene(screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final'].includes(screen) ? 'terminal' : null); });
+  motionPreference.addEventListener('change',()=>activeIntro?.setReduced(reducedMotion()));
+  syncSettings();
+  if(state.guideAccepted) render(state.route,false);
+  else if(state.introStage==='guide') { monitorEntry=true; render('guide',false); }
+  else startIntro();
 })();
