@@ -71,6 +71,7 @@ const path = require('node:path');
       await action('finish-memory').click();
     }
     await screen('top'); await noOverflow(); assert.equal(await page.locator('.is-locked').count(), 0);
+    assert.equal(await page.locator('.erase-noise').count(),0,'照合後はノイズも描画処理もなくなる');
     assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '4');
     await page.screenshot({ path: path.join(screenshotDirectory, 'terminal-mobile.png'), fullPage: true });
     await action('erase').click(); await screen('final'); await noOverflow();

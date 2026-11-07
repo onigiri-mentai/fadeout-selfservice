@@ -5,6 +5,6 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const output = path.join(root, 'dist');
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
-for (const name of ['index.html', 'style.css', 'intro.css', 'data.js', 'engine.js', 'audio.js', 'intro.js', 'main.js', 'assets']) await cp(path.join(root, name), path.join(output, name), { recursive: true });
+for (const name of ['index.html', 'style.css', 'intro.css', 'data.js', 'engine.js', 'audio.js', 'intro.js', 'button-noise.js', 'main.js', 'assets']) await cp(path.join(root, name), path.join(output, name), { recursive: true });
 await writeFile(path.join(output, '.nojekyll'), '');
 console.log('Static game built in dist/ — no runtime dependencies.');

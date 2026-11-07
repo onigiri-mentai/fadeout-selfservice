@@ -4,7 +4,7 @@
   let storage;
   try { storage = window.localStorage; } catch { storage = { getItem: () => null, setItem: () => { throw new Error('unavailable'); } }; }
   let state = E.load(storage), screen = 'intro', guideReturn = 'top', currentResponse = null, hintsVisible = false, sceneExpanded = true, pendingConfirm = null, sceneTimer = null;
-  let activeIntro = null, monitorEntry = false;
+  let activeIntro = null, activeButtonNoise = null, monitorEntry = false;
   const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
   const reducedMotion = () => state.settings.reducedMotion || motionPreference.matches;
   const audio = new window.FadeoutAudio();
@@ -23,6 +23,7 @@
     document.getElementById('motion-setting').checked = state.settings.reducedMotion;
     audio.configure(state.settings);
     activeIntro?.setReduced(reducedMotion());
+    activeButtonNoise?.setReduced(reducedMotion());
   }
   function terminal(content, heading, code, status = 'お手続きを選択してください') {
     return `<section class="terminal-wrap"><div class="terminal-heading"><div><span class="eyebrow">セルフサービス / 記憶の確認・消去</span><h1>${heading}</h1></div><span class="terminal-id">受付機 01</span></div><div class="machine"><div class="machine-screen"><div class="machine-status"><span><i aria-hidden="true"></i>${status}</span><span>${code}</span></div><div class="terminal-content">${content}</div></div><div class="machine-plinth" aria-hidden="true"><span class="plinth-slot"></span><span class="plinth-caption">フェードアウト受付機 F-01</span></div></div></section>`;
@@ -36,7 +37,7 @@
     return `<svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[kind]}</svg>`;
   }
   function startIntro(replay=false) {
-    activeIntro?.dispose(); clearTimeout(sceneTimer);
+    activeIntro?.dispose(); activeButtonNoise?.dispose();activeButtonNoise=null; clearTimeout(sceneTimer);
     screen='intro'; monitorEntry=false;
     guideReturn=replay && state.guideAccepted ? state.route : 'top';
     document.body.classList.add('intro-active');
@@ -49,9 +50,8 @@
       mount:app, lines:D.prologue, stage:replay?'prologue':state.introStage, line:replay?0:state.introLine, reduced:reducedMotion(),
       onCheckpoint:({stage,line})=>{ if(!replay) { state.introStage=stage; state.introLine=line; persist(); } },
       onMotion:()=>{ state.settings.reducedMotion=!state.settings.reducedMotion; syncSettings(); persist(); },
-      onComplete:(result)=>{
+      onComplete:()=>{
         activeIntro=null;
-        if(result?.menu && state.guideAccepted) { monitorEntry=false; render('top'); return; }
         monitorEntry=true;
         if(!replay) { state.introStage='guide'; persist(); }
         render('guide'); audio.play('boot');
@@ -120,6 +120,7 @@
   }
   function render(next, focus = true) {
     activeIntro?.dispose(); activeIntro=null;
+    activeButtonNoise?.dispose();activeButtonNoise=null;
     const previous = screen;
     clearTimeout(sceneTimer); screen = next;
     document.body.classList.remove('intro-active');
@@ -129,6 +130,7 @@
     if (['top', 'history', 'memory', 'final', 'ending'].includes(next)) { state.route = next; persist(); }
     const views = { guide: guideView, top: topView, history: historyView, memory: memoryView, final: finalView, ending: endingView };
     app.innerHTML = views[next](); app.dataset.screen = next;
+    if(next==='top' && state.completed.length<4) activeButtonNoise=new window.FadeoutButtonNoise(app.querySelector('.erase-card'),{reduced:reducedMotion(),paused:document.hidden});
     app.classList.toggle('scene-transition', previous !== next && (next === 'memory' || previous === 'memory' || next === 'ending'));
     if (focus) { app.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); }
     audio.setScene(next === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final'].includes(next) ? 'terminal' : null);
@@ -186,7 +188,7 @@
       case 'open-memory': { const index = Number(b.dataset.index); if (index < E.unlocked(state)) { state.active = index; currentResponse = null; hintsVisible = false; render('memory'); } break; }
       case 'erase':
         if (state.completed.length === 4) render('final');
-        else { audio.play('error'); b.classList.add('is-rejected'); const machine = document.querySelector('.machine-screen'); machine.classList.add('is-rejected'); document.getElementById('erase-feedback').textContent = '操作を受け付けられません。消去対象を確認できません。'; clearTimeout(sceneTimer); sceneTimer = setTimeout(() => { b.classList.remove('is-rejected'); machine.classList.remove('is-rejected'); }, 550); } break;
+        else { audio.play('error'); activeButtonNoise?.trigger(); document.getElementById('erase-feedback').textContent = '操作を受け付けられません。消去対象を確認できません。'; } break;
       case 'inspect':
         currentResponse = E.inspect(state, state.active, b.dataset.id);
         if (currentResponse) { persist(); audio.play(currentResponse.sound); updateMemory(); if (currentResponse.sound === 'pause') { const scene = document.getElementById('memory-scene'); scene.classList.add('inspection-paused'); clearTimeout(sceneTimer); sceneTimer = setTimeout(() => scene.classList.remove('inspection-paused'), 2000); } if (currentResponse.newlyComplete) announce('この記憶の閲覧を終えられます。'); } break;
@@ -205,8 +207,8 @@
   document.getElementById('sound-setting').addEventListener('change', event => setSound(event.target.checked));
   document.getElementById('volume-setting').addEventListener('input', event => { state.settings.volume = Number(event.target.value); audio.configure(state.settings); persist(); });
   document.getElementById('motion-setting').addEventListener('change', event => { state.settings.reducedMotion = event.target.checked; syncSettings(); persist(); });
-  document.addEventListener('visibilitychange', () => { activeIntro?.setPaused(document.hidden); if (document.hidden) audio.stopScene(); else if (state.settings.sound) audio.setScene(screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final'].includes(screen) ? 'terminal' : null); });
-  motionPreference.addEventListener('change',()=>activeIntro?.setReduced(reducedMotion()));
+  document.addEventListener('visibilitychange', () => { activeIntro?.setPaused(document.hidden);activeButtonNoise?.setPaused(document.hidden); if (document.hidden) audio.stopScene(); else if (state.settings.sound) audio.setScene(screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final'].includes(screen) ? 'terminal' : null); });
+  motionPreference.addEventListener('change',()=>{activeIntro?.setReduced(reducedMotion());activeButtonNoise?.setReduced(reducedMotion());});
   syncSettings();
   if(state.guideAccepted) render(state.route,false);
   else if(state.introStage==='guide') { monitorEntry=true; render('guide',false); }

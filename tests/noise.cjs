@@ -1,0 +1,51 @@
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const path=require('node:path');
+const E=require('../engine.js');
+(async()=>{
+  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
+  const context=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'no-preference'});
+  const page=await context.newPage(),errors=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  const initial=E.fresh();initial.started=true;initial.guideAccepted=true;
+  await context.addInitScript(value=>{if(!localStorage.getItem('fadeout.prototype.v1'))localStorage.setItem('fadeout.prototype.v1',value);},JSON.stringify(initial));
+  await page.clock.install();
+  const shotDirectory=path.join(__dirname,'../test-results');await fs.mkdir(shotDirectory,{recursive:true});
+  const canvas=page.locator('.erase-noise');
+  const pixels=()=>canvas.evaluate(c=>c.toDataURL());
+  const noOverflow=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+  const minimumText=async(selector)=>{
+    const sizes=await page.locator(selector).evaluateAll(nodes=>nodes.filter(n=>n.getClientRects().length).map(n=>parseFloat(getComputedStyle(n).fontSize)));
+    assert.ok(sizes.length>0);assert.ok(sizes.every(size=>size>=14),selector+' is readable');
+  };
+  try{
+    await page.goto(process.env.GAME_URL||'http://127.0.0.1:8000');await page.locator('#app[data-screen="top"]').waitFor();
+    await noOverflow();
+    assert.equal(await page.locator('.history-card').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(29, 161, 242)');
+    assert.equal(await page.locator('.guide-card').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(29, 161, 242)');
+    await minimumText('.terminal-intro,.menu-card small,.menu-state,.machine-status,.verification-state');
+    const before=await page.locator('.machine-screen').boundingBox();
+    await page.locator('[data-action="erase"]').click();await page.locator('.erase-card.is-noisy').waitFor();
+    assert.equal(await page.locator('.machine-screen.is-rejected').count(),0);
+    assert.equal(await canvas.getAttribute('aria-hidden'),'true');
+    const confined=await canvas.evaluate(c=>{const r=c.getBoundingClientRect(),b=c.parentElement.getBoundingClientRect();return r.left>=b.left&&r.top>=b.top&&r.right<=b.right&&r.bottom<=b.bottom&&getComputedStyle(c.parentElement).overflow==='hidden';});
+    assert.equal(confined,true,'ノイズはボタンの境界内だけに描かれる');
+    const frame1=await pixels();await page.clock.runFor(120);const frame2=await pixels();assert.notEqual(frame1,frame2,'ノイズは固定パターンではなく毎回ランダム');
+    assert.deepEqual(await page.locator('.machine-screen').boundingBox(),before,'画面全体を揺らさない');
+    await page.screenshot({path:path.join(shotDirectory,'noise-mobile.png'),fullPage:true});
+    await page.clock.runFor(1000);assert.equal(await page.locator('.erase-card.is-noisy').count(),0);
+    await page.locator('[data-action="settings"]').click();await page.locator('#motion-setting').check();await page.getByRole('button',{name:'設定を閉じる'}).click();
+    await page.locator('[data-action="erase"]').click();const quiet=await pixels();await page.clock.runFor(12000);assert.equal(await pixels(),quiet,'動き軽減時は静止ノイズにする');
+    assert.equal(await page.locator('.erase-card.is-noisy').count(),0);
+    await page.locator('[data-action="history"]').click();assert.equal(await canvas.count(),0);await page.clock.runFor(10000);
+    await minimumText('.history-item small,.history-state,.history-next-note');
+    await page.locator('[data-index="0"]').click();await minimumText('.sound-caption,.narrative-hint,.memory-help');
+    await page.locator('[data-action="history"]').click();await page.setViewportSize({width:320,height:640});await noOverflow();
+    await page.locator('[data-action="top"]').click();await noOverflow();await minimumText('.terminal-intro,.machine-status,.menu-card small');
+    await page.locator('[data-action="guide"]').click();await noOverflow();await minimumText('.guide-copy p');
+    await page.screenshot({path:path.join(shotDirectory,'guide-readable-mobile.png'),fullPage:true});
+    assert.deepEqual(errors,[]);
+    console.log('Cyan/readability/noise passed: 320/390px, 14px minimum text, local random canvas, stable screen, reduced motion, cleanup.');
+  }finally{await context.close();await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

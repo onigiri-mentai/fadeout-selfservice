@@ -24,7 +24,7 @@
         <div class="intro-dark"><p class="intro-line" id="intro-line" aria-live="polite" aria-atomic="true"></p></div>
         <p class="intro-scene-description sr-only" aria-live="polite"></p>
         <button class="intro-advance" data-intro-action="next" aria-label="次の場面へ進む"><span class="intro-tap-label">タップして次へ<span aria-hidden="true"> →</span></span></button>
-        <div class="intro-bottom-actions" aria-hidden="true"><button class="intro-primary-action" data-intro-action="authenticate" hidden>認証する</button><button class="intro-primary-action" data-intro-action="menu" hidden>メニューへ</button></div>
+        <div class="intro-bottom-actions" aria-hidden="true"><button class="intro-primary-action" data-intro-action="authenticate" hidden>認証する</button><button class="intro-primary-action" data-intro-action="guide" hidden>利用案内へ</button></div>
         <div class="intro-tools"><button data-intro-action="motion" aria-pressed="${reduced}">${reduced ? '動き軽減 ON' : '動きを少なく'}</button><button data-intro-action="skip">案内へスキップ</button></div>
       </section>`;
       this.element = mount.querySelector('.intro-experience');
@@ -40,7 +40,7 @@
         if (button.dataset.introAction === 'skip') this.finish();
         if (button.dataset.introAction === 'motion') this.onMotion?.();
         if (button.dataset.introAction === 'authenticate' && this.stage==='title') this.show('authenticating');
-        if (button.dataset.introAction === 'menu' && this.stage==='authenticated') this.finish({menu:true});
+        if (button.dataset.introAction === 'guide' && this.stage==='authenticated') this.finish();
       };
       this.onResize = () => this.camera(false);
       this.onImageLoad = () => { this.camera(false); if(this.waitingForImage && this.stage==='wide') { this.waitingForImage=false; this.schedule(this.duration()); } };
@@ -92,7 +92,7 @@
       const actions=this.mount.querySelector('.intro-bottom-actions');
       actions.setAttribute('aria-hidden',String(!['title','authenticated'].includes(stage)));
       this.mount.querySelector('[data-intro-action="authenticate"]').hidden=stage!=='title';
-      this.mount.querySelector('[data-intro-action="menu"]').hidden=stage!=='authenticated';
+      this.mount.querySelector('[data-intro-action="guide"]').hidden=stage!=='authenticated';
       this.onCheckpoint?.({stage,line});
       if(stage === 'prologue') {
         const text=this.lines[line];
