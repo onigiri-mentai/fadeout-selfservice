@@ -3,6 +3,7 @@ window.FadeoutAudio = class {
   constructor() {
     this.context = null; this.nodes = []; this.timers = []; this.scene = null; this.enabled = false; this.volume = .35;
     this.music = document.getElementById('intro-bgm'); this.introRequested = false; this.paused = document.hidden; this.musicMix = .65;
+    this.introPending = false; this.introDelayTimer = null; this.introDelayDue = null; this.introDelayRemaining = 0;
     this.music.addEventListener('error', () => { if(this.introRequested && this.enabled) this.onMusicError?.(); });
   }
   async unlock() {
@@ -13,7 +14,7 @@ window.FadeoutAudio = class {
         this.context = new Audio(); this.master = this.context.createGain(); this.master.gain.value = this.enabled ? this.volume : 0; this.master.connect(this.context.destination);
         // Web Audio also controls music volume on iOS, where media.volume is limited.
         if(location.protocol !== 'file:') {
-          this.musicSource = this.context.createMediaElementSource(this.music); this.musicGain = this.context.createGain(); this.musicGain.gain.value = this.musicMix;
+          this.musicSource = this.context.createMediaElementSource(this.music); this.musicGain = this.context.createGain(); this.musicGain.gain.value = this.introPending ? 0 : this.musicMix;
           this.musicSource.connect(this.musicGain); this.musicGain.connect(this.master); this.music.volume = 1;
         }
       }
@@ -23,21 +24,50 @@ window.FadeoutAudio = class {
   configure(settings) {
     this.enabled = settings.sound; this.volume = settings.volume / 100;
     if (this.master) this.master.gain.setTargetAtTime(this.enabled && !this.paused ? this.volume : 0, this.context.currentTime, .06);
-    if (!this.musicSource) this.music.volume = this.volume * this.musicMix;
+    this.updateMusicLevel();
     if (!this.enabled) this.stopScene(); this.updateIntro();
   }
-  setIntro(active) {
+  updateMusicLevel() {
+    const level = this.introPending ? 0 : this.musicMix;
+    if(this.musicGain) this.musicGain.gain.value = level;
+    else this.music.volume = this.volume * level;
+  }
+  scheduleIntro(ms) {
+    clearTimeout(this.introDelayTimer); this.introDelayRemaining = ms; this.introDelayDue = performance.now() + ms;
+    if(this.paused) return;
+    this.introDelayTimer = setTimeout(() => {
+      this.introDelayTimer = null; this.introDelayDue = null; this.introDelayRemaining = 0; this.introPending = false;
+      // Rewind the silent priming playback so the audible music starts at its beginning.
+      this.music.pause(); if(this.music.readyState) this.music.currentTime = 0;
+      this.updateMusicLevel(); this.updateIntro();
+    }, ms);
+  }
+  setIntro(active, delay = 0) {
+    const starting = active && !this.introRequested;
     this.introRequested = active;
-    if(!active) { this.music.pause(); if(this.music.readyState) this.music.currentTime = 0; }
-    else this.updateIntro();
+    if(!active) {
+      clearTimeout(this.introDelayTimer);this.introDelayTimer=null;this.introDelayDue=null;this.introDelayRemaining=0;this.introPending=false;
+      this.music.pause(); if(this.music.readyState) this.music.currentTime = 0; this.updateMusicLevel();
+    } else {
+      if(starting && delay>0) { this.introPending=true;this.scheduleIntro(delay); }
+      this.updateMusicLevel();this.updateIntro();
+    }
   }
   updateIntro() {
     if(!this.introRequested || !this.enabled || this.paused) { this.music.pause(); return; }
     if(!this.music.paused) return;
-    // Call play inside the start-button gesture, before waiting for any promises.
+    // Prime silently during the start gesture, so the delayed start also works on mobile.
     this.music.play().catch(error => { if(error.name !== 'AbortError' && this.introRequested && this.enabled && !this.paused) this.onMusicError?.(); });
   }
-  setPaused(paused) { this.paused = paused; if(paused) this.stopScene(); else if(this.enabled) this.unlock(); if(this.master) this.master.gain.setTargetAtTime(!paused && this.enabled ? this.volume : 0,this.context.currentTime,.02);this.updateIntro(); }
+  setPaused(paused) {
+    const previous = this.paused; this.paused = paused;
+    if(this.introPending && paused !== previous) {
+      if(paused) {this.introDelayRemaining=Math.max(0,this.introDelayDue-performance.now());clearTimeout(this.introDelayTimer);this.introDelayTimer=null;}
+      else this.scheduleIntro(this.introDelayRemaining);
+    }
+    if(paused) this.stopScene(); else if(this.enabled) this.unlock();
+    if(this.master) this.master.gain.setTargetAtTime(!paused && this.enabled ? this.volume : 0,this.context.currentTime,.02);this.updateIntro();
+  }
   ui(kind = 'tap') {
     if(kind === 'confirm') { this.tone(1046, .13, .09); this.tone(1397, .16, .055, .07); }
     else if(kind === 'back') this.tone(523, .1, .07);

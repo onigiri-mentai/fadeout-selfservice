@@ -50,7 +50,7 @@
     state.started=true;
     activeIntro=new window.FadeoutIntro({
       mount:app, lines:D.prologue, stage:replay?'prologue':state.introStage, line:replay?0:state.introLine, reduced:reducedMotion(), sound:state.settings.sound,
-      onCheckpoint:({stage,line})=>{ audio.setIntro(['prologue','approach','monitor','title'].includes(stage)); if(!replay) { state.introStage=stage; state.introLine=line; persist(); } },
+      onCheckpoint:({stage,line})=>{ audio.setIntro(['prologue','approach','monitor','title'].includes(stage),stage==='prologue'?3000:0); if(!replay) { state.introStage=stage; state.introLine=line; persist(); } },
       onMotion:()=>{ state.settings.reducedMotion=!state.settings.reducedMotion; syncSettings(); persist(); },
       onSound:()=>setSound(!state.settings.sound),
       onComplete:()=>{
