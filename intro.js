@@ -5,9 +5,9 @@
     landscape: { width:1536, height:1024, body:{x:686,y:431,width:165,height:409}, monitor:{x:719,y:465,width:98,height:134} },
     portrait: { width:1024, height:1536, body:{x:451,y:823,width:121,height:309}, monitor:{x:476,y:848,width:73,height:102} },
   };
-  const PHASES = ['prologue', 'wide', 'approach', 'monitor', 'title', 'authenticating', 'authenticated'];
-  const AUTO_DURATION = {wide:2000,approach:4800,monitor:3200,authenticating:2000};
-  const REDUCED_DURATION = {wide:1600,approach:1600,monitor:1100,authenticating:1600};
+  const PHASES = ['prologue', 'approach', 'monitor', 'title', 'authenticating', 'authenticated'];
+  const AUTO_DURATION = {approach:2000,monitor:3200,authenticating:2000};
+  const REDUCED_DURATION = {approach:1600,monitor:1100,authenticating:1600};
   const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   class FadeoutIntro {
     constructor({mount, lines, stage='prologue', line=0, reduced=false, onCheckpoint, onComplete, onMotion}) {
@@ -43,14 +43,14 @@
         if (button.dataset.introAction === 'guide' && this.stage==='authenticated') this.finish();
       };
       this.onResize = () => this.camera(false);
-      this.onImageLoad = () => { this.camera(false); if(this.waitingForImage && this.stage==='wide') { this.waitingForImage=false; this.schedule(this.duration()); } };
+      this.onImageLoad = () => { this.camera(false); if(this.waitingForImage && this.stage==='approach') { this.waitingForImage=false; this.schedule(this.duration()); } };
       this.onImageError = () => { this.element.classList.add('image-unavailable'); this.mount.querySelector('.intro-scene-description').textContent = '背景画像を読み込めませんでした。ご利用案内へスキップできます。'; if(this.waitingForImage) {this.waitingForImage=false;this.schedule(this.duration());} };
       this.element.addEventListener('click', this.onClick);
       this.image.addEventListener('load', this.onImageLoad);
       this.image.addEventListener('error', this.onImageError);
       window.addEventListener('resize', this.onResize);
       this.setReduced(reduced);
-      this.show(PHASES.includes(stage) ? stage : 'prologue', Math.max(0, Math.min(lines.length - 1, line)));
+      this.show(stage==='wide' ? 'approach' : PHASES.includes(stage) ? stage : 'prologue', Math.max(0, Math.min(lines.length - 1, line)));
     }
     frame() { return this.image.currentSrc.includes('portrait') || (!this.image.currentSrc && matchMedia('(max-width:700px)').matches) ? FRAMES.portrait : FRAMES.landscape; }
     camera(animate=true) {
@@ -58,7 +58,8 @@
       const frame = this.frame(), vw = this.element.clientWidth, vh = this.element.clientHeight;
       const fit = Math.max(vw/frame.width, vh/frame.height);
       let scale = fit, x = (vw-frame.width*fit)/2, y = (vh-frame.height*fit)/2;
-      if (this.stage === 'approach') {
+      if (this.stage === 'prologue' || this.stage === 'approach') {
+        // Start at the old first zoom's destination, already in position behind black.
         const b=frame.body;
         scale=Math.max(fit, Math.min(vh*.58/b.height, vw*.60/b.width));
         x=vw/2-(b.x+b.width/2)*scale;
@@ -71,7 +72,7 @@
         x=vw/2-(b.x+b.width/2)*scale;
         y=vh*.56-(b.y+b.height/2)*scale;
       }
-      const duration=this.stage === 'approach' ? 4200 : this.stage === 'monitor' ? 2800 : 0;
+      const duration=this.stage === 'monitor' ? 2800 : 0;
       Object.assign(this.plane.style, {width:frame.width+'px',height:frame.height+'px',transition:animate&&!this.reduced ? `transform ${duration}ms cubic-bezier(.45,0,.55,1)` : 'none',transform:`translate(${x}px,${y}px) scale(${scale})`});
       const s=frame.monitor;
       Object.assign(this.surface.style,{left:s.x+'px',top:s.y+'px',width:s.width+'px',height:s.height+'px'});
@@ -103,11 +104,11 @@
         this.camera(false);
       } else {
         this.lineElement.innerHTML=previous?`<span class="intro-passage-out" aria-hidden="true">${escape(previous)}</span>`:'';
-        const description={wide:'高い白い柱と雲の見える空間。花のそばに、一台の受付機が立っている。',approach:'同じ受付機へゆっくり近づく。人物はいない。',monitor:'受付機のモニターへ近づく。',title:'フェードアウトはセルフでお願いします。認証するボタンで進めます。'}[stage]||'';
+        const description={approach:'白い空間に立つ受付機を、近くから見る。人物はいない。',monitor:'受付機のモニターへ近づく。',title:'フェードアウトはセルフでお願いします。認証するボタンで進めます。'}[stage]||'';
         this.mount.querySelector('.intro-scene-description').textContent=description;
         this.mount.querySelector('.intro-tap-label').textContent='';
-        this.camera(stage!=='title');
-        if(stage==='wide' && !this.image.complete) this.waitingForImage=true;
+        this.camera(stage==='monitor');
+        if(stage==='approach' && !this.image.complete) this.waitingForImage=true;
         else if(this.duration()!==undefined) this.schedule(this.duration());
       }
     }
@@ -118,15 +119,14 @@
     }
     advanceCamera() {
       if(this.disposed) return;
-      if(this.stage==='wide') this.show('approach');
-      else if(this.stage==='approach') this.show('monitor');
+      if(this.stage==='approach') this.show('monitor');
       else if(this.stage==='monitor') this.show('title');
       else if(this.stage==='authenticating') this.show('authenticated');
     }
     next() {
       if(this.disposed || this.stage!=='prologue') return;
       if(this.stage==='prologue' && this.line<this.lines.length-1) this.show('prologue',this.line+1);
-      else this.show('wide');
+      else this.show('approach');
     }
     setReduced(reduced) {
       this.reduced=reduced;
