@@ -74,6 +74,8 @@ test('導入の途中を保存し、v0.2以前のセーブは進行を保って�
   const storage={getItem:()=>JSON.stringify(s)};
   assert.equal(E.load(storage).introStage,'approach');
   assert.equal(E.load(storage).introLine,3);
+  s.introStage='title';
+  assert.equal(E.load(storage).introStage,'title');
   finishOne(s,0); s.guideAccepted=true; s.active=1; s.route='history';
   delete s.introStage; delete s.introLine;
   const restored=E.load(storage);

@@ -11,7 +11,7 @@
       const state = fresh();
       state.started = !!s.started;
       state.guideAccepted = !!s.guideAccepted;
-      state.introStage = state.guideAccepted ? 'done' : ['prologue','wide','approach','monitor','guide'].includes(s.introStage) ? s.introStage : 'prologue';
+      state.introStage = state.guideAccepted ? 'done' : ['prologue','wide','approach','monitor','title','guide'].includes(s.introStage) ? s.introStage : 'prologue';
       state.introLine = Number.isInteger(s.introLine) ? Math.max(0,Math.min(root.FadeoutData.prologue.length-1,s.introLine)) : 0;
       state.settings = { sound: s.settings?.sound === true, volume: Math.max(0, Math.min(100, Number(s.settings?.volume) || 0)), reducedMotion: s.settings?.reducedMotion === true };
       if (Array.isArray(s.memories) && s.memories.length === 4) state.memories = s.memories.map(m => ({ clues: Array.isArray(m?.clues) ? m.clues.filter(v => typeof v === 'string') : [], effects: Array.isArray(m?.effects) ? m.effects.filter(v => typeof v === 'string') : [] }));

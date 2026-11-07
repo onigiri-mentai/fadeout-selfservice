@@ -16,9 +16,16 @@ body.intro-active #app { min-height:100svh; }
 .intro-experience:not([data-phase="prologue"]) .intro-dark { opacity:0; }
 .intro-experience:not([data-phase="prologue"]) .intro-world { opacity:1; }
 .intro-experience[data-phase="monitor"] .intro-screen-surface { opacity:1; }
-.intro-monitor-veil { position:absolute; inset:0; background:#f4f7fa; opacity:0; pointer-events:none; transition:opacity 3800ms ease-in-out 650ms; }
-.intro-experience[data-phase="monitor"] .intro-monitor-veil { opacity:1; }
+.intro-experience[data-phase="title"] .intro-screen-surface { opacity:1; }
+.intro-monitor-veil { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; transition:opacity 3800ms ease-in-out 650ms; }
+.intro-experience[data-phase="monitor"] .intro-monitor-veil,.intro-experience[data-phase="title"] .intro-monitor-veil { opacity:1; }
+.intro-title-card { position:absolute; inset:0; display:grid; place-items:center; background:#fff; opacity:0; pointer-events:none; }
+.intro-title-card h1 { margin:0; padding:0; width:min(72vw,620px); line-height:0; }
+.intro-title-card img { display:block; width:100%; height:auto; }
+.intro-experience[data-phase="title"] .intro-title-card { opacity:1; }
+.intro-experience[data-phase="title"] .intro-title-card h1 { animation:intro-title-reveal 6500ms both; }
 .intro-advance { position:absolute; inset:0; width:100%; height:100%; padding:0; background:transparent; border:0; border-radius:0; color:inherit; }
+.intro-advance[hidden] { display:none; }
 .intro-advance:focus-visible { outline:2px solid #bdccd5; outline-offset:-9px; }
 .intro-tap-label { position:absolute; bottom:max(32px,calc(env(safe-area-inset-bottom) + 20px)); left:50%; transform:translateX(-50%); white-space:nowrap; font:11px/1.8 var(--sans); color:#c0c5cc; letter-spacing:.12em; padding:10px 16px; }
 .intro-tap-label>span { margin-left:9px; }
@@ -80,11 +87,13 @@ body.monitor-entry { background:#f4f7fa; }
 .intro-replay-button { display:block; margin-top:14px; }
 @keyframes intro-passage { from { opacity:0; } to { opacity:1; } }
 @keyframes intro-passage-out { from { opacity:1; } to { opacity:0; } }
+@keyframes intro-title-reveal { 0%,100% { opacity:0; } 24%,76% { opacity:1; } }
 @keyframes monitor-arrival { from { opacity:0; } to { opacity:1; } }
 @media(max-width:700px) {
   .intro-tools { right:15px; top:max(16px,calc(env(safe-area-inset-top) + 9px)); gap:7px; }
   .intro-tools button { padding:10px 11px; font-size:10px; }
   .intro-line { max-width:390px; font-size:16px; line-height:2.2; letter-spacing:.04em; }
+  .intro-title-card h1 { width:calc(100vw - 50px); max-width:460px; }
   .intro-tap-label { bottom:max(27px,calc(env(safe-area-inset-bottom) + 15px)); font-size:10px; }
   .monitor-entry .terminal-content { padding:32px 24px max(35px,env(safe-area-inset-bottom)); }
   .monitor-entry .guide-copy p { font-size:14px; line-height:2; }
