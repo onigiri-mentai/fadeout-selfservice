@@ -49,8 +49,10 @@
       mount:app, lines:D.prologue, stage:replay?'prologue':state.introStage, line:replay?0:state.introLine, reduced:reducedMotion(),
       onCheckpoint:({stage,line})=>{ if(!replay) { state.introStage=stage; state.introLine=line; persist(); } },
       onMotion:()=>{ state.settings.reducedMotion=!state.settings.reducedMotion; syncSettings(); persist(); },
-      onComplete:()=>{
-        activeIntro=null; monitorEntry=true;
+      onComplete:(result)=>{
+        activeIntro=null;
+        if(result?.menu && state.guideAccepted) { monitorEntry=false; render('top'); return; }
+        monitorEntry=true;
         if(!replay) { state.introStage='guide'; persist(); }
         render('guide'); audio.play('boot');
       },
