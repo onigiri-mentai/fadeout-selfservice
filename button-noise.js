@@ -27,7 +27,7 @@
       const noise=this.grainContext.createImageData(96,48),pixels=noise.data;
       for(let i=0;i<pixels.length;i+=4) {
         const light=Math.random()>.53;
-        pixels[i]=light?208:7; pixels[i+1]=light?246:51; pixels[i+2]=light?255:80;
+        pixels[i]=light?238:39; pixels[i+1]=light?242:49; pixels[i+2]=light?245:58;
         pixels[i+3]=Math.floor(Math.random()*48*intensity);
       }
       this.grainContext.putImageData(noise,0,0);
@@ -35,7 +35,7 @@
       const bars=Math.ceil(3+Math.random()*6*intensity);
       for(let i=0;i<bars;i++) {
         const y=Math.random()*h,height=1+Math.random()*4;
-        ctx.fillStyle=['rgba(2,40,66,.66)','rgba(214,250,255,.76)','rgba(4,139,226,.65)'][Math.floor(Math.random()*3)];
+        ctx.fillStyle=['rgba(37,47,56,.66)','rgba(247,249,251,.76)','rgba(98,113,126,.65)'][Math.floor(Math.random()*3)];
         ctx.globalAlpha=.25+intensity*.6;
         ctx.fillRect(Math.random()*w*.55,y,w*(.14+Math.random()*.4),height);
       }
@@ -44,7 +44,7 @@
         ctx.font=this.font; ctx.textBaseline='alphabetic';
         for(let i=0;i<4;i++) {
           ctx.save(); ctx.beginPath();ctx.rect(0,this.labelY-this.fontSize+Math.random()*this.fontSize,w,2+Math.random()*6);ctx.clip();
-          ctx.fillStyle=i%2?'#dffaff':'#124e7b';ctx.fillText(this.label.textContent,this.labelX+(Math.random()-.5)*22,this.labelY);ctx.restore();
+          ctx.fillStyle=i%2?'#f7f8fa':'#445564';ctx.fillText(this.label.textContent,this.labelX+(Math.random()-.5)*22,this.labelY);ctx.restore();
         }
       }
     }

@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   const KEY = 'fadeout.prototype.v1';
-  const fresh = () => ({ version: 1, started: false, guideAccepted: false, introStage: 'prologue', introLine: 0, route: 'top', active: 0, completed: [], memories: Array.from({ length: 4 }, () => ({ clues: [], effects: [] })), endingChoice: null, settings: { sound: false, volume: 35, reducedMotion: false } });
+  const fresh = () => ({ version: 1, flowVersion: 2, started: false, guideAccepted: false, introStage: 'prologue', introLine: 0, route: 'top', active: 0, completed: [], choices: [null, null, null, null], memories: Array.from({ length: 4 }, () => ({ clues: [], effects: [] })), endingChoice: null, settings: { sound: false, volume: 35, reducedMotion: false } });
   const hasAll = (list, required) => required.every(id => list.includes(id));
   function load(storage) {
     try {
@@ -20,15 +20,25 @@
         if (s.completed?.includes(i) && canFinish(state, i) && (i === 0 || state.completed.includes(i - 1))) state.completed.push(i);
         else break;
       }
-      state.active = Number.isInteger(s.active) && s.active >= 0 && s.active < unlocked(state) ? s.active : 0;
-      state.endingChoice = state.completed.length === 4 && ['erase', 'keep'].includes(s.endingChoice) ? s.endingChoice : null;
-      state.route = ['top', 'history', 'memory', 'final', 'ending'].includes(s.route) ? s.route : 'top';
-      if (state.route === 'final' && state.completed.length < 4 || state.route === 'ending' && !state.endingChoice) state.route = 'top';
+      // 旧版の一括選択は全4件への明示的な選択。未選択の旧セーブに結果は作らない。
+      const legacyChoice = s.flowVersion !== 2 && state.completed.length === 4 && ['erase', 'keep'].includes(s.endingChoice) ? s.endingChoice : null;
+      for (let i = 0; i < 4; i++) {
+        const choice = legacyChoice || s.choices?.[i];
+        if (state.completed.includes(i) && ['erase', 'keep'].includes(choice) && (i === 0 || state.choices[i - 1])) state.choices[i] = choice;
+        else break;
+      }
+      state.active = Number.isInteger(s.active) && s.active >= 0 && s.active < unlocked(state) ? s.active : Math.min(3, decided(state));
+      state.endingChoice = outcome(state);
+      state.route = ['top', 'history', 'memory', 'final', 'receipt', 'ending'].includes(s.route) ? s.route : 'top';
+      if (state.route === 'ending' && !state.endingChoice) { state.active = decided(state); state.route = 'final'; }
+      if (state.route === 'receipt' && !state.choices[state.active]) state.route = 'final';
       return state;
     } catch { return fresh(); }
   }
   function save(storage, state) { try { storage.setItem(KEY, JSON.stringify(state)); return true; } catch { return false; } }
-  function unlocked(state) { return Math.min(4, state.completed.length + 1); }
+  function decided(state) { let count = 0; while (count < 4 && ['erase', 'keep'].includes(state.choices[count])) count++; return count; }
+  function unlocked(state) { return Math.min(4, decided(state) + 1); }
+  function outcome(state) { return decided(state) < 4 ? null : state.choices.every(v => v === state.choices[0]) ? state.choices[0] : 'mixed'; }
   function canFinish(state, index) { return hasAll(state.memories[index].clues, root.FadeoutData.memories[index].required); }
   function inspect(state, index, id) {
     if (index >= unlocked(state) || index < 0) return null;
@@ -58,11 +68,17 @@
     return { ...response, label: spot.label, blockedHint: blocked ? spot.blocked.hint : null, effect: progress.effects.at(-1), newlyComplete: !before && canFinish(state, index) };
   }
   function finish(state, index) {
-    if (index >= unlocked(state) || !canFinish(state, index)) return false;
+    if (!Number.isInteger(index) || index < 0 || index >= unlocked(state) || !canFinish(state, index)) return false;
     if (!state.completed.includes(index)) state.completed.push(index);
-    state.route = index === 3 ? 'top' : 'history';
+    state.active = index;
+    state.route = 'final';
     return true;
   }
-  root.FadeoutEngine = { KEY, fresh, load, save, unlocked, canFinish, inspect, finish };
+  function choose(state, index, choice) {
+    if (!['erase', 'keep'].includes(choice) || index !== decided(state) || index >= 4 || !state.completed.includes(index) || !canFinish(state, index)) return false;
+    state.choices[index] = choice; state.active = index; state.route = 'receipt'; state.endingChoice = outcome(state);
+    return true;
+  }
+  root.FadeoutEngine = { KEY, fresh, load, save, unlocked, decided, outcome, canFinish, inspect, finish, choose };
   if (typeof module !== 'undefined') module.exports = root.FadeoutEngine;
 })(typeof window !== 'undefined' ? window : globalThis);
