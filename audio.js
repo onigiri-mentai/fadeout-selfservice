@@ -83,16 +83,19 @@ window.FadeoutAudio = class {
     oscillator.connect(envelope); envelope.connect(this.master); oscillator.start(t); oscillator.stop(t + duration + .02);
     oscillator.onended = () => { oscillator.disconnect(); envelope.disconnect(); };
   }
-  noise(duration = .15, gain = .06, cutoff = 1200) {
+  noise(duration = .15, gain = .06, cutoff = 1200, delay = 0) {
     if (!this.context || !this.enabled || this.paused) return;
     const source = this.context.createBufferSource(), buffer = this.context.createBuffer(1, Math.ceil(this.context.sampleRate * duration), this.context.sampleRate);
     const samples = buffer.getChannelData(0); for (let i = 0; i < samples.length; i++) samples[i] = (Math.random() * 2 - 1) * (1 - i / samples.length);
     const filter = this.context.createBiquadFilter(), envelope = this.context.createGain(); filter.type = 'lowpass'; filter.frequency.value = cutoff; envelope.gain.value = gain;
-    source.buffer = buffer; source.connect(filter); filter.connect(envelope); envelope.connect(this.master); source.start(); source.onended = () => { source.disconnect(); filter.disconnect(); envelope.disconnect(); };
+    source.buffer = buffer; source.connect(filter); filter.connect(envelope); envelope.connect(this.master); source.start(this.context.currentTime+delay); source.onended = () => { source.disconnect(); filter.disconnect(); envelope.disconnect(); };
+    return source;
   }
   play(id) {
     if (!this.enabled) return;
     switch (id) {
+      case 'sobQuiet': return [this.noise(.16,.022,650),this.noise(.22,.016,600,.28)];
+      case 'clearWind': return [this.noise(2.1,.018,2200),this.noise(.65,.009,600,.65)];
       case 'boot': this.tone(680, .18, .035); break;
       case 'error': this.noise(.16, .045, 2000); this.tone(120, .14, .035); break;
       case 'wood': this.noise(.3, .12, 400); break;
@@ -112,6 +115,7 @@ window.FadeoutAudio = class {
   stopScene() { this.timers.forEach(clearTimeout); this.timers = []; this.nodes.forEach(n => { try { n.stop(); } catch {} n.disconnect(); }); this.nodes = []; if (this.ambientGain) this.ambientGain.disconnect(); this.ambientGain = null; }
   setScene(scene) {
     this.stopScene(); this.scene = scene;
+    if(scene==='night')return;
     if (!this.enabled || !this.context || !scene || this.paused) return;
     const oscillator = this.context.createOscillator(), g = this.context.createGain(); oscillator.frequency.value = scene === 'fridge' ? 57 : 48; g.gain.value = .018; oscillator.connect(g); g.connect(this.master); oscillator.start(); this.nodes.push(oscillator); this.ambientGain = g;
     if (scene === 'clock') { const tick = () => { if (this.scene !== 'clock' || !this.enabled) return; if (g.gain.value > .008) this.noise(.024, .018, 1300); this.timers.push(setTimeout(tick, 1400)); }; tick(); }

@@ -11,14 +11,17 @@
   <link rel="stylesheet" href="style.css?v=0.6.0">
   <link rel="stylesheet" href="intro.css?v=0.7.0">
   <link rel="stylesheet" href="terminal.css?v=0.6.0">
+  <link rel="stylesheet" href="present.css?v=0.8.0">
   <link rel="preload" as="image" href="assets/images/intro-hall-portrait.webp" media="(max-width:700px)">
   <link rel="preload" as="image" href="assets/images/intro-hall.webp" media="(min-width:701px)">
   <script defer src="data.js?v=0.6.0"></script>
-  <script defer src="engine.js?v=0.6.0"></script>
-  <script defer src="audio.js?v=0.7.1"></script>
+  <script defer src="engine.js?v=0.8.0"></script>
+  <script defer src="audio.js?v=0.8.0"></script>
   <script defer src="intro.js?v=0.7.0"></script>
   <script defer src="button-noise.js?v=0.6.0"></script>
-  <script defer src="main.js?v=0.7.1"></script>
+  <script defer src="present-data.js?v=0.8.0"></script>
+  <script defer src="present.js?v=0.8.0"></script>
+  <script defer src="main.js?v=0.8.0"></script>
 </head>
 <body class="intro-active">
   <audio id="intro-bgm" src="assets/audio/self_OP.mp3" preload="none" loop hidden></audio>
@@ -27,7 +30,7 @@
     <div class="header-tools"><span class="prototype">受付機 01</span><button class="icon-button" id="sound-toggle" aria-label="音をオンにする" aria-pressed="false">音 OFF</button><button class="icon-button" data-action="settings" aria-label="設定を開く">設定</button></div>
   </header>
   <main id="app" tabindex="-1"></main>
-  <footer class="site-footer"><span><i aria-hidden="true"></i> フェードアウト受付機</span><span>最終操作の代行はできません。</span><span class="footer-version">試作版 v0.7.1</span></footer>
+  <footer class="site-footer"><span><i aria-hidden="true"></i> フェードアウト受付機</span><span>最終操作の代行はできません。</span><span class="footer-version">試作版 v0.8</span></footer>
   <dialog id="settings-dialog" aria-labelledby="settings-title">
     <form method="dialog"><div class="dialog-heading"><span class="eyebrow">TERMINAL SETTINGS</span><button class="icon-button" aria-label="設定を閉じる">閉じる ×</button></div><h2 id="settings-title">設定と試作品について</h2></form>
     <label class="setting-row">音を鳴らす<input id="sound-setting" type="checkbox"></label>

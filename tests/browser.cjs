@@ -1,4 +1,4 @@
-const {enter}=require('./helpers.cjs');
+const {enter,continuePresent}=require('./helpers.cjs');
 // 開発用。実際の操作で、4件の確認・選択・再開を通して検証する。
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -42,7 +42,7 @@ const sequences = [['chair','cup','hand','chair'],['hand','phone','phone'],['pud
     await action('choose-erase').click();await screen('final');
     assert.deepEqual((await saved()).choices,[null,null,null,null]);
     await page.reload();await enter(page);await screen('final');await screenshot('episode-before-mobile.png');
-    await action('read-memory').click();await screen('memory');
+    await action('read-memory').click();await continuePresent(page);await screen('memory');
     assert.equal(await page.locator('#finish-button').isDisabled(),true);
     await inspect('hand');assert.ok(await page.locator('.narrative-hint').textContent());
     await inspect('chair');const before=await page.locator('.narrative-text').textContent();
@@ -62,7 +62,7 @@ const sequences = [['chair','cup','hand','chair'],['hand','phone','phone'],['pud
     await page.reload();await enter(page);await screen('memory');
     // 戻るだけでは確認完了や次の解放にならない。
     await action('episode').click();await screen('final');assert.equal(await action('choose-keep').isDisabled(),true);
-    await action('read-memory').click();await action('finish-memory').click();await screen('final');
+    await action('read-memory').click();await continuePresent(page);await action('finish-memory').click();await screen('final');
     assert.equal(await action('choose-keep').isEnabled(),true);
     assert.equal(await page.locator('.erase-noise').count(),0,'確認後にノイズの更新を止める');
     await action('history').click();assert.equal(await page.locator('.history-item:disabled').count(),3,'確認だけでは解放しない');
@@ -73,7 +73,7 @@ const sequences = [['chair','cup','hand','chair'],['hand','phone','phone'],['pud
     const choices=['keep','erase','keep','erase'];
     for(let i=0;i<4;i++) {
       if(i>0) {
-        await screen('final');await action('read-memory').click();await screen('memory');
+        await screen('final');await action('read-memory').click();await continuePresent(page);await screen('memory');
         for(const id of sequences[i]) await inspect(id);
         await action('finish-memory').click();await screen('final');
       }
@@ -93,7 +93,7 @@ const sequences = [['chair','cup','hand','chair'],['hand','phone','phone'],['pud
     assert.equal(await page.locator('.history-item:disabled').count(),0);
     await page.locator('[data-index="0"]').focus();await page.keyboard.press('Enter');await screen('final');
     assert.equal(await action('choose-erase').count(),0,'確定後の選択は読み返しても変えない');
-    await action('read-memory').click();await screen('memory');
+    await action('read-memory').click();await continuePresent(page);await screen('memory');
     await page.locator('.hotspot[data-id="chair"]').focus();await page.keyboard.press('Space');
     await page.locator('#fragment-label').filter({hasText:'空いた椅子'}).waitFor();
     await page.locator('.hint-panel summary').click();await action('hint').click();

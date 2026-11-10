@@ -1,12 +1,12 @@
 {
   "name": "fadeout-selfservice",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "private": true,
   "description": "フェードアウトはセルフでお願いします。 — 静的ブラウザ試作品",
   "scripts": {
     "start": "python3 -m http.server 8000 --bind 0.0.0.0",
     "build": "node scripts/build.mjs",
     "test": "node tests/engine.test.cjs",
-    "test:browser": "node tests/audio.cjs && node tests/intro.cjs && node tests/noise.cjs && node tests/browser.cjs"
+    "test:browser": "node tests/present.cjs && node tests/audio.cjs && node tests/intro.cjs && node tests/noise.cjs && node tests/browser.cjs"
   }
 }

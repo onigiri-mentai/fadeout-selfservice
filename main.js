@@ -4,7 +4,7 @@
   let storage;
   try { storage = window.localStorage; } catch { storage = { getItem: () => null, setItem: () => { throw new Error('unavailable'); } }; }
   let state = E.load(storage), screen = 'intro', guideReturn = 'top', currentResponse = null, hintsVisible = false, sceneExpanded = true, pendingConfirm = null, sceneTimer = null;
-  let activeIntro = null, activeButtonNoise = null, monitorEntry = false;
+  let activeIntro = null, activeButtonNoise = null, activePresent = null, monitorEntry = false;
   const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
   const reducedMotion = () => state.settings.reducedMotion || motionPreference.matches;
   const audio = new window.FadeoutAudio();
@@ -25,6 +25,7 @@
     activeIntro?.setSound(state.settings.sound);
     activeIntro?.setReduced(reducedMotion());
     activeButtonNoise?.setReduced(reducedMotion());
+    activePresent?.setReduced(reducedMotion());
   }
   function terminal(content, heading, code, status = 'お手続きを選択してください') {
     return `<section class="terminal-wrap"><div class="terminal-heading"><div><span class="eyebrow">セルフサービス / 記憶の確認・消去</span><h1>${heading}</h1></div><span class="terminal-id">受付機 01</span></div><div class="machine"><div class="machine-screen"><div class="machine-status"><span><i aria-hidden="true"></i>${status}</span><span>${code}</span></div><div class="terminal-content">${content}</div></div><div class="machine-plinth" aria-hidden="true"><span class="plinth-slot"></span><span class="plinth-caption">フェードアウト受付機 F-01</span></div></div></section>`;
@@ -39,6 +40,7 @@
   }
   function startIntro(replay=false) {
     activeIntro?.dispose(); activeButtonNoise?.dispose();activeButtonNoise=null; clearTimeout(sceneTimer);
+    activePresent?.dispose();activePresent=null;
     audio.setIntro(false);
     screen='intro'; monitorEntry=false;
     guideReturn=replay && state.guideAccepted ? state.route : 'top';
@@ -106,7 +108,7 @@
     const spots = m.hotspots.map(h => button('inspect', `<span class="spot-dot" aria-hidden="true"></span><span class="spot-label">${esc(h.label)}</span>`, 'hotspot', `data-id="${h.id}" style="left:${h.x}%;top:${h.y}%" aria-label="${esc(h.label)}を調べる"`)).join('');
     const spotButtons = m.hotspots.map(h => button('inspect', esc(h.label), '', `data-id="${h.id}"`)).join('');
     return `<section class="memory-page">
-      <div class="memory-header"><div class="memory-title"><span class="memory-no">${m.id}</span><div><h1>${esc(m.title)}</h1><span class="eyebrow">${esc(m.place)}${state.choices[state.active] ? ' / 手続き前の記録' : ''}</span></div></div>${button('episode', '手続き画面へ →', 'back-button')}</div>
+      <div class="memory-header"><div class="memory-title"><span class="memory-no">${m.id}</span><div><h1>${esc(m.title)}</h1><span class="eyebrow">${state.active===0?'過去の記憶 / ':''}${esc(m.place)}${state.choices[state.active] ? ' / 手続き前の記録' : ''}</span></div></div>${button('episode', '手続き画面へ →', 'back-button')}</div>
       <div class="memory-layout">
         <div class="scene-viewport is-expanded" id="scene-viewport" tabindex="0" role="region" aria-label="記憶の絵。拡大表示では左右に動かして調べられます。">
           <div class="scene" id="memory-scene" role="group" aria-label="調べられる記憶の絵">
@@ -126,9 +128,11 @@
   }
   function finalView() {
     const m = D.memories[state.active], choice = state.choices[state.active], ready = state.completed.includes(state.active);
+    const current = state.active===0 && !choice ? `<section class="procedure-step"><div class="step-label"><span>01</span><h3>対象者の現状確認</h3><small>${state.present001.finished?'確認済み':state.present001.entered?'確認途中':'確認待ち'}</small></div><p>まず、この記憶を持つ人の今の様子を確認します。</p>${button('read-present',state.present001.entered?'今の様子をもう一度見る →':'対象者の現状を確認する →','solid-button read-present-button')}</section>` : '';
+    const memoryStep=state.active===0&&!choice?'02':'01', choiceStep=state.active===0&&!choice?'03':'02';
     return terminal(`<div class="episode-heading"><span class="section-label">エピソード ${String(state.active + 1).padStart(2,'0')} / 04</span><h2>${esc(m.title)}</h2><p class="terminal-intro">${esc(m.place)} / 履歴 ${m.id}</p></div>
-      <section class="procedure-step"><div class="step-label"><span>01</span><h3>記憶を確認する</h3><small>${ready ? '確認済み' : '確認待ち'}</small></div><p>${choice ? '手続き前に保存された記録を読み返せます。' : '記憶の中を調べてから、この記憶を消去するか選択してください。'}</p>${button('read-memory', choice ? '手続き前の記録を読む →' : ready ? '記憶をもう一度確認する →' : '記憶を確認する →', 'solid-button read-memory-button')}</section>
-      <section class="procedure-step"><div class="step-label"><span>02</span><h3>${choice ? '手続きの結果' : '消去するか選ぶ'}</h3><small>${choice ? '手続き済み' : ready ? '選択可能' : '確認後に選択'}</small></div>${choice ? `<p class="recorded-choice">${choice === 'erase' ? 'この記憶の消去手続きは完了しています。' : 'この記憶は、消去せずに残しました。'}</p>${button('show-receipt', '手続き結果を見る →', 'outline-button')}` : `<p>対象は、残された人の中にある、<strong>このエピソードのあなたに関する記憶</strong>です。他のエピソードはそれぞれ選びます。</p>${ready ? `<div class="final-cautions"><h3>実行前の確認事項</h3><ul>${D.finalNotes.map(note => `<li>${esc(note)}</li>`).join('')}</ul></div>` : ''}<div class="final-actions">${button('choose-erase', `<strong>この記憶を消去する</strong>`, `outline-button choice-button erase-card ${ready ? '' : 'is-locked'}`, 'aria-describedby="erase-feedback"')}${button('choose-keep', 'この記憶を残す', 'outline-button choice-button', ready ? '' : 'disabled')}</div><p class="inline-status" id="erase-feedback" role="status">${ready ? '記憶の確認が完了しました。消去するか、残すかを選択してください。' : '記憶を確認するまで、消去の操作はできません。'}</p>`}</section>
+      ${current}<section class="procedure-step"><div class="step-label"><span>${memoryStep}</span><h3>記憶を確認する</h3><small>${ready ? '確認済み' : '確認待ち'}</small></div><p>${choice ? '手続き前に保存された記録を読み返せます。' : '記憶の中を調べてから、この記憶を消去するか選択してください。'}</p>${button('read-memory', choice ? '手続き前の記録を読む →' : ready ? '記憶をもう一度確認する →' : '記憶を確認する →', 'solid-button read-memory-button')}</section>
+      <section class="procedure-step"><div class="step-label"><span>${choiceStep}</span><h3>${choice ? '手続きの結果' : '消去するか選ぶ'}</h3><small>${choice ? '手続き済み' : ready ? '選択可能' : '確認後に選択'}</small></div>${choice ? `<p class="recorded-choice">${choice === 'erase' ? 'この記憶の消去手続きは完了しています。' : 'この記憶は、消去せずに残しました。'}</p>${button('show-receipt', '手続き結果を見る →', 'outline-button')}` : `<p>対象は、残された人の中にある、<strong>このエピソードのあなたに関する記憶</strong>です。他のエピソードはそれぞれ選びます。</p>${ready ? `<div class="final-cautions"><h3>実行前の確認事項</h3><ul>${D.finalNotes.map(note => `<li>${esc(note)}</li>`).join('')}</ul></div>` : ''}<div class="final-actions">${button('choose-erase', `<strong>この記憶を消去する</strong>`, `outline-button choice-button erase-card ${ready ? '' : 'is-locked'}`, 'aria-describedby="erase-feedback"')}${button('choose-keep', 'この記憶を残す', 'outline-button choice-button', ready ? '' : 'disabled')}</div><p class="inline-status" id="erase-feedback" role="status">${ready ? '記憶の確認が完了しました。消去するか、残すかを選択してください。' : '記憶を確認するまで、消去の操作はできません。'}</p>`}</section>
       <div class="terminal-bottom">${button('history', '← エピソード一覧へ', 'text-button')}<span class="small-note">最終操作の代行はできません。</span></div>`, '記憶の確認・消去', choice ? '手続き済み' : ready ? '選択待ち' : '記憶の確認待ち', 'エピソード別手続き');
   }
   function receiptView() {
@@ -142,6 +146,7 @@
   }
   function render(next, focus = true) {
     activeIntro?.dispose(); activeIntro=null;
+    activePresent?.dispose();activePresent=null;
     audio.setIntro(false);
     activeButtonNoise?.dispose();activeButtonNoise=null;
     const previous = screen;
@@ -151,13 +156,14 @@
     document.body.classList.toggle('monitor-session',['guide','top','history','final','receipt'].includes(next));
     document.body.classList.toggle('reception-home-active', next === 'top');
     document.querySelector('meta[name="theme-color"]').content='#f5f6f7';
-    if (['top', 'history', 'memory', 'final', 'receipt', 'ending'].includes(next)) { state.route = next; persist(); }
-    const views = { guide: guideView, top: topView, history: historyView, memory: memoryView, final: finalView, receipt: receiptView, ending: endingView };
+    if (['top', 'history', 'present', 'memory', 'final', 'receipt', 'ending'].includes(next)) { state.route = next; persist(); }
+    const views = { guide: guideView, top: topView, history: historyView, present: ()=>window.FadeoutPresent.markup(window.FadeoutPresentData), memory: memoryView, final: finalView, receipt: receiptView, ending: endingView };
     app.innerHTML = views[next](); app.dataset.screen = next;
     if(next==='final' && !state.completed.includes(state.active) && !state.choices[state.active]) activeButtonNoise=new window.FadeoutButtonNoise(app.querySelector('.erase-card'),{reduced:reducedMotion(),paused:document.hidden});
     app.classList.toggle('scene-transition', previous !== next && (next === 'memory' || previous === 'memory' || next === 'ending'));
     if (focus) { app.focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); }
-    audio.setScene(next === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final', 'receipt'].includes(next) ? 'terminal' : null);
+    audio.setScene(next === 'present' ? 'night' : next === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final', 'receipt'].includes(next) ? 'terminal' : null);
+    if(next==='present') {activePresent=new window.FadeoutPresent({mount:app.querySelector('.present-page'),data:window.FadeoutPresentData,progress:state.present001,reduced:reducedMotion(),onChange:persist,onSound:id=>audio.play(id)});activePresent.setPaused(document.hidden);}
     if (next === 'memory') { sceneExpanded = true; updateMemory(); requestAnimationFrame(centerScene); }
     if (next === 'ending') audio.play(D.endings[state.endingChoice].sound);
   }
@@ -191,12 +197,12 @@
       document.getElementById('sound-caption').textContent = currentResponse.caption || m.ambienceCaption;
     }
   }
-  function setSound(value) { state.settings.sound = value; syncSettings(); if(value) { audio.unlock(); audio.ui('tap'); activeIntro?.setAudioError(''); } audio.setScene(screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final', 'receipt'].includes(screen) ? 'terminal' : null); persist(); }
+  function setSound(value) { state.settings.sound = value; syncSettings(); if(value) { audio.unlock(); audio.ui('tap'); activeIntro?.setAudioError(''); } audio.setScene(screen === 'present' ? 'night' : screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final', 'receipt'].includes(screen) ? 'terminal' : null); persist(); }
   // A capture listener covers native buttons, intro controls and dialog buttons alike.
   // Starting sound is handled below so both AudioContext.resume and media.play share the gesture.
   document.addEventListener('click', event => {
     const b=event.target.closest('button,summary,a[data-action]');
-    if(!b || b.matches(':disabled') || ['sound-start','silent-start'].includes(b.dataset.action) || b.id==='sound-toggle' || b.dataset.introAction==='sound' || !state.settings.sound) return;
+    if(!b || b.matches(':disabled') || ['sound-start','silent-start'].includes(b.dataset.action) || b.id==='sound-toggle' || b.dataset.presentAction || b.dataset.introAction==='sound' || !state.settings.sound) return;
     audio.unlock();
     const action=b.dataset.action || b.dataset.introAction || b.id;
     audio.ui(['confirm-yes','authenticate','accept-guide'].includes(action) ? 'confirm' : ['confirm-no','top','history','episode','review','skip'].includes(action) ? 'back' : ['inspect','next'].includes(action) ? 'soft' : 'tap');
@@ -225,7 +231,9 @@
       case 'history': render('history'); break;
       case 'open-episode': { const index = Number(b.dataset.index); if (Number.isInteger(index) && index >= 0 && index < E.unlocked(state)) { state.active = index; render('final'); } break; }
       case 'episode': render('final'); break;
-      case 'read-memory': currentResponse = null; hintsVisible = false; render('memory'); break;
+      case 'read-present': if(state.active===0 && !state.choices[0])render('present');break;
+      case 'finish-present': if(screen==='present' && state.active===0){state.present001.finished=true;currentResponse=null;hintsVisible=false;persist();render('memory');}break;
+      case 'read-memory': currentResponse = null; hintsVisible = false; render(state.active===0 && !state.choices[0] && !state.present001.finished?'present':'memory'); break;
       case 'open-memory': { const index = Number(b.dataset.index); if (index < E.unlocked(state)) { state.active = index; currentResponse = null; hintsVisible = false; render('memory'); } break; }
       case 'inspect':
         currentResponse = E.inspect(state, state.active, b.dataset.id);
@@ -254,8 +262,8 @@
   document.getElementById('volume-setting').addEventListener('input', event => { state.settings.volume = Number(event.target.value); audio.configure(state.settings); persist(); });
   document.addEventListener('input', event => { if(event.target.id==='start-volume') { state.settings.volume=Number(event.target.value); document.getElementById('start-volume-value').textContent=state.settings.volume+'%';audio.configure(state.settings); } });
   document.getElementById('motion-setting').addEventListener('change', event => { state.settings.reducedMotion = event.target.checked; syncSettings(); persist(); });
-  document.addEventListener('visibilitychange', () => { activeIntro?.setPaused(document.hidden);activeButtonNoise?.setPaused(document.hidden);audio.setPaused(document.hidden); if (!document.hidden && state.settings.sound) audio.setScene(screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final', 'receipt'].includes(screen) ? 'terminal' : null); });
-  motionPreference.addEventListener('change',()=>{activeIntro?.setReduced(reducedMotion());activeButtonNoise?.setReduced(reducedMotion());});
+  document.addEventListener('visibilitychange', () => { activeIntro?.setPaused(document.hidden);activeButtonNoise?.setPaused(document.hidden);activePresent?.setPaused(document.hidden);audio.setPaused(document.hidden); if (!document.hidden && state.settings.sound) audio.setScene(screen === 'present' ? 'night' : screen === 'memory' ? D.memories[state.active].ambience : ['top', 'guide', 'history', 'final', 'receipt'].includes(screen) ? 'terminal' : null); });
+  motionPreference.addEventListener('change',()=>{activeIntro?.setReduced(reducedMotion());activeButtonNoise?.setReduced(reducedMotion());activePresent?.setReduced(reducedMotion());});
   syncSettings();
   audio.onMusicError=()=>activeIntro?.setAudioError('BGMを再生できませんでした。「音 OFF」にしてから、もう一度オンにして再試行できます。');
   soundGate();

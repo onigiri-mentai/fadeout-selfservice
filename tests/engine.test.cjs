@@ -131,3 +131,15 @@ test('旧セーブの調査を保ち、未選択の結果は作らず、旧一�
   assert.deepEqual(restored.choices,[null,null,null,null]);
   assert.equal(restored.route,'final');assert.equal(restored.active,0);
 });
+test('001の現状確認だけを追加保存し、旧進行・選択を保つ',()=>{
+  const s=E.fresh();finishOne(s,0,'keep');s.route='memory';s.active=1;
+  delete s.present001;
+  let loaded=E.load({getItem:()=>JSON.stringify(s)});
+  assert.deepEqual(loaded.choices,s.choices);assert.deepEqual(loaded.memories,s.memories);
+  assert.equal(loaded.route,'memory');assert.equal(loaded.active,1);assert.equal(loaded.present001.entered,false);
+  const current=E.fresh();current.route='present';current.present001={entered:true,finished:false,reach:2,window:1,object:0,near:true,last:'window'};
+  loaded=E.load({getItem:()=>JSON.stringify(current)});assert.deepEqual(loaded,current);
+  current.present001.reach=-3;current.present001.window=100;current.present001.last='<bad>';
+  loaded=E.load({getItem:()=>JSON.stringify(current)});assert.equal(loaded.present001.reach,0);assert.equal(loaded.present001.window,9);assert.equal(loaded.present001.last,'intro');
+  s.route='present';loaded=E.load({getItem:()=>JSON.stringify(s)});assert.equal(loaded.route,'final','002以降には現状確認を増やさない');
+});

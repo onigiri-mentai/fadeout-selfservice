@@ -1,4 +1,4 @@
-const {enter}=require('./helpers.cjs');
+const {enter,continuePresent}=require('./helpers.cjs');
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');
@@ -95,7 +95,7 @@ const URL=process.env.GAME_URL||'http://127.0.0.1:8000';
     assert.equal(await phone.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await phone.screenshot({path:path.join(output,'intro-guide-mobile.png'),fullPage:true});
     await phone.locator('[data-action="accept-guide"]').click();
-    await phone.locator('[data-action="history"]').click(); await phone.locator('[data-index="0"]').click(); await phone.locator('[data-action="read-memory"]').click();
+    await phone.locator('[data-action="history"]').click(); await phone.locator('[data-index="0"]').click(); await phone.locator('[data-action="read-memory"]').click();await continuePresent(phone);
     await phone.locator('.hotspot[data-id="chair"]').click();
     const before=await phone.evaluate(()=>JSON.parse(localStorage.getItem('fadeout.prototype.v1')));
     await phone.locator('[data-action="settings"]').click();

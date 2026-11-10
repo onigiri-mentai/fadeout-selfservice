@@ -2,7 +2,8 @@
 (function (root) {
   'use strict';
   const KEY = 'fadeout.prototype.v1';
-  const fresh = () => ({ version: 1, flowVersion: 2, started: false, guideAccepted: false, introStage: 'prologue', introLine: 0, route: 'top', active: 0, completed: [], choices: [null, null, null, null], memories: Array.from({ length: 4 }, () => ({ clues: [], effects: [] })), endingChoice: null, settings: { sound: false, volume: 35, reducedMotion: false } });
+  const freshPresent = () => ({entered:false,finished:false,reach:0,window:0,object:0,near:false,last:'intro'});
+  const fresh = () => ({ version: 1, flowVersion: 2, started: false, guideAccepted: false, introStage: 'prologue', introLine: 0, route: 'top', active: 0, completed: [], choices: [null, null, null, null], memories: Array.from({ length: 4 }, () => ({ clues: [], effects: [] })), present001:freshPresent(), endingChoice: null, settings: { sound: false, volume: 35, reducedMotion: false } });
   const hasAll = (list, required) => required.every(id => list.includes(id));
   function load(storage) {
     try {
@@ -29,7 +30,13 @@
       }
       state.active = Number.isInteger(s.active) && s.active >= 0 && s.active < unlocked(state) ? s.active : Math.min(3, decided(state));
       state.endingChoice = outcome(state);
-      state.route = ['top', 'history', 'memory', 'final', 'receipt', 'ending'].includes(s.route) ? s.route : 'top';
+      const p=s.present001;
+      if(p && typeof p==='object') {
+        state.present001={entered:p.entered===true,finished:p.finished===true,near:p.near===true,last:['intro','reach','window','object','withdraw','look'].includes(p.last)?p.last:'intro'};
+        for(const key of ['reach','window','object'])state.present001[key]=Number.isInteger(p[key])?Math.max(0,Math.min(9,p[key])):0;
+      }
+      state.route = ['top', 'history', 'present', 'memory', 'final', 'receipt', 'ending'].includes(s.route) ? s.route : 'top';
+      if(state.route==='present' && (state.active!==0 || state.choices[0]))state.route='final';
       if (state.route === 'ending' && !state.endingChoice) { state.active = decided(state); state.route = 'final'; }
       if (state.route === 'receipt' && !state.choices[state.active]) state.route = 'final';
       return state;
