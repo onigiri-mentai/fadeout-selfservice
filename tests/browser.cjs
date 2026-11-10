@@ -24,7 +24,7 @@ const sequences = [['chair','cup','hand','chair'],['hand','phone','phone'],['pud
     await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8000');await enter(page);
     await screen('intro'); await screenshot('intro-black.png');
     await page.locator('[data-intro-action="skip"]').click(); await screen('guide');
-    await page.getByText('当機では、手放したい記憶の確認・整理・消去を受け付けております。',{exact:true}).waitFor();
+    await page.getByText(globalThis.FadeoutData.guide[1],{exact:true}).waitFor();
     await action('accept-guide').click(); await screen('top');
     assert.equal(await page.locator('.top-menu button').count(),2);
     await page.getByRole('button',{name:/記憶の履歴確認・消去/}).waitFor();

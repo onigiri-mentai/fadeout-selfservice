@@ -27,8 +27,8 @@
     activeButtonNoise?.setReduced(reducedMotion());
     activePresent?.setReduced(reducedMotion());
   }
-  function terminal(content, heading, code, status = 'お手続きを選択してください') {
-    return `<section class="terminal-wrap"><div class="terminal-heading"><div><span class="eyebrow">セルフサービス / 記憶の確認・消去</span><h1>${heading}</h1></div><span class="terminal-id">受付機 01</span></div><div class="machine"><div class="machine-screen"><div class="machine-status"><span><i aria-hidden="true"></i>${status}</span><span>${code}</span></div><div class="terminal-content">${content}</div></div><div class="machine-plinth" aria-hidden="true"><span class="plinth-slot"></span><span class="plinth-caption">フェードアウト受付機 F-01</span></div></div></section>`;
+  function terminal(content, heading, code, status = 'お手続きを選択してください', inScreenHeading = false) {
+    return `<section class="terminal-wrap${inScreenHeading ? ' terminal-guide' : ''}">${inScreenHeading ? '' : `<div class="terminal-heading"><div><span class="eyebrow">セルフサービス / 記憶の確認・消去</span><h1>${heading}</h1></div><span class="terminal-id">受付機 01</span></div>`}<div class="machine"><div class="machine-screen"><div class="machine-status"><span><i aria-hidden="true"></i>${status}</span><span>${code}</span></div><div class="terminal-content">${content}</div></div><div class="machine-plinth" aria-hidden="true"><span class="plinth-slot"></span><span class="plinth-caption">フェードアウト受付機 F-01</span></div></div></section>`;
   }
   function progressView() {
     const count = E.decided(state), available = E.unlocked(state);
@@ -45,7 +45,7 @@
     screen='intro'; monitorEntry=false;
     guideReturn=replay && state.guideAccepted ? state.route : 'top';
     document.body.classList.add('intro-active');
-    document.body.classList.remove('monitor-entry','monitor-session','reception-home-active');
+    document.body.classList.remove('monitor-entry','monitor-session','reception-home-active','guide-active');
     document.querySelector('meta[name="theme-color"]').content='#050608';
     app.classList.remove('scene-transition'); app.dataset.screen='intro';
     audio.setScene(null);
@@ -78,7 +78,7 @@
     app.focus({preventScroll:true});
   }
   function guideView() {
-    return terminal(`<div class="guide-copy"><span class="section-label">お手続きの前に</span>${D.guide.map(p => `<p>${esc(p)}</p>`).join('')}<div class="guide-notes">${D.guideNotes.map(p => `<p>${esc(p)}</p>`).join('')}</div><p class="guide-signature">フェードアウトはセルフでお願いします。</p>${button('accept-guide', '確認しました →', 'solid-button')}</div>`, 'ご利用案内', '案内表示中', '操作受付中');
+    return terminal(`<div class="guide-copy"><h1 class="guide-title">ご利用案内</h1>${D.guide.map(p => `<p>${esc(p)}</p>`).join('')}<div class="guide-notes">${D.guideNotes.map(p => `<p>${esc(p)}</p>`).join('')}</div><p class="guide-signature">フェードアウトはセルフでお願いします。</p>${button('accept-guide', '確認しました →', 'solid-button')}</div>`, 'ご利用案内', '案内表示中', '操作受付中', true);
   }
   function topView() {
     const count = E.decided(state);
@@ -153,6 +153,7 @@
     clearTimeout(sceneTimer); screen = next;
     document.body.classList.remove('intro-active');
     document.body.classList.toggle('monitor-entry',next==='guide'&&monitorEntry);
+    document.body.classList.toggle('guide-active',next==='guide');
     document.body.classList.toggle('monitor-session',['guide','top','history','final','receipt'].includes(next));
     document.body.classList.toggle('reception-home-active', next === 'top');
     document.querySelector('meta[name="theme-color"]').content='#f5f6f7';

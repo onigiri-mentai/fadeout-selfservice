@@ -120,3 +120,34 @@
   .reception-home .service-copy strong { font-size:18px; }
   .step-label small { width:100%; margin-left:38px; }
 }
+
+/* The same framed guide appears after authentication and when reopened. */
+body.monitor-entry.guide-active { background:#f2f4f6; }
+body.monitor-entry.guide-active>.masthead { display:flex; }
+body.monitor-entry.guide-active #app { min-height:0; }
+.monitor-session .terminal-guide { width:100%; max-width:900px; min-height:0; margin:0 auto; padding:30px 24px 42px; }
+.monitor-session .terminal-guide .machine { min-height:0; padding:7px; border:2px solid #aab5bf; border-radius:12px; background:linear-gradient(130deg,#f9fafb,#e1e6eb 50%,#eef1f4); box-shadow:inset 0 0 0 1px #fff,0 4px 8px #35495818; }
+.monitor-session .terminal-guide .machine-screen { min-height:0; border:1px solid #98a6b2; border-radius:6px; overflow:hidden; background:linear-gradient(120deg,#fff,#f5f7f9); box-shadow:inset 0 0 18px #61778908; }
+.terminal-guide .machine-plinth { display:none; }
+.monitor-session .terminal-guide .machine-status { min-height:49px; padding:13px 26px; background:linear-gradient(120deg,#e9edf1,#e1e6ec); border-color:#c9d1d8; font-size:15px; }
+.monitor-session .terminal-guide .terminal-content { max-width:none; margin:0; padding:30px 36px 36px; }
+.monitor-session .terminal-guide .guide-copy { max-width:720px; margin:0 auto; }
+.terminal-guide .guide-title { margin:0 0 25px; padding:0 0 20px; border-bottom:1px solid #b8c3cc; color:#344550; font:650 32px/1.5 var(--sans); letter-spacing:.05em; }
+.monitor-session .terminal-guide .guide-copy>p { font:400 18px/1.95 var(--sans); letter-spacing:.02em; margin:0 0 24px; white-space:pre-line; }
+.monitor-session .terminal-guide .guide-notes { padding:18px 20px; margin:28px 0; border:1px solid #bac5ce; border-radius:6px; background:linear-gradient(120deg,#f4f6f8,#edf0f4); color:#52616d; }
+.monitor-session .terminal-guide .guide-notes p { margin:0; font:400 16px/1.9 var(--sans); }
+.monitor-session .terminal-guide .guide-notes p+p { margin-top:16px; }
+.monitor-session .terminal-guide .guide-copy>.guide-signature { margin:0 0 28px; }
+.monitor-session .terminal-guide .solid-button { width:100%; min-height:64px; padding:16px 18px; border:1.5px solid #a9b7c3; border-radius:9px; font-size:19px; font-weight:650; letter-spacing:.04em; }
+@media(max-width:700px) {
+  .monitor-session .terminal-guide { padding:17px 10px 28px; }
+  .monitor-session .terminal-guide .machine { padding:6px; border-radius:11px; }
+  .monitor-session .terminal-guide .machine-status { min-height:43px; padding:10px 14px; font-size:14px; }
+  .monitor-session .terminal-guide .terminal-content { padding:23px 16px 28px; }
+  .terminal-guide .guide-title { font-size:28px; padding-bottom:14px; margin-bottom:20px; }
+  .monitor-session .terminal-guide .guide-copy>p { font-size:16px; line-height:1.95; margin-bottom:22px; letter-spacing:.01em; white-space:normal; }
+  .monitor-session .terminal-guide .guide-notes { padding:14px 13px; margin:24px 0; }
+  .monitor-session .terminal-guide .guide-notes p { font-size:15px; line-height:1.9; }
+  .monitor-session .terminal-guide .guide-copy>.guide-signature { margin-bottom:24px; }
+  .monitor-session .terminal-guide .solid-button { min-height:60px; font-size:18px; }
+}

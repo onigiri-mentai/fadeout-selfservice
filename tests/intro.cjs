@@ -73,7 +73,7 @@ const URL=process.env.GAME_URL||'http://127.0.0.1:8000';
     await page.getByRole('button',{name:'利用案内へ',exact:true}).focus(); await page.keyboard.press('Enter');
     await page.locator('#app[data-screen="guide"]').waitFor();
     for(const text of [...D.guide,...D.guideNotes]) await page.getByText(text,{exact:true}).waitFor();
-    assert.equal(await page.locator('.masthead').isVisible(),false);
+    assert.equal(await page.locator('.masthead').isVisible(),true,'利用案内は共通の端末ヘッダーと枠を表示する');
     await page.locator('#app').evaluate(el=>el.getAnimations().forEach(a=>a.finish()));
     await page.screenshot({path:path.join(output,'intro-guide-desktop.png'),fullPage:true});
     await page.locator('[data-action="accept-guide"]').click();
